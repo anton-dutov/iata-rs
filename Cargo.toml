@@ -1,0 +1,7 @@
+[package]
+name    = "iata"
+version = "0.0.1"
+authors = ["Anton Dutov <anton.dutov@gmail.com>"]
+
+[dependencies]
+nom = "3.2"
