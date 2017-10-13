@@ -1,4 +1,4 @@
 #[macro_use]
 extern crate nom;
 
-mod bcbp;
+pub mod bcbp;

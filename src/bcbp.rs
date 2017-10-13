@@ -4,7 +4,7 @@ use std::usize;
 use self::str::FromStr;
 
 #[derive(Debug, PartialEq)]
-enum Error {
+pub enum Error {
     DataLength,
     FormatCode,
     SegmentsCount,
@@ -17,7 +17,7 @@ enum Error {
 }
 
 #[derive(Debug, Clone)]
-struct Segment {
+pub struct Segment {
     pnr: String,
     src_airport: String,
     dst_airport: String,
@@ -70,6 +70,13 @@ impl Segment {
         self.flight_day.as_ref()
     }
 
+    pub fn flight_day_aligned(&self) -> String {
+        if self.flight_day.len() == 0 {
+            return String::new()
+        }
+        format!("{:0>3}", self.flight_day).into()
+    }
+
     pub fn compartment(&self) -> char {
         self.compartment
     }
@@ -78,8 +85,22 @@ impl Segment {
         self.seat.as_ref()
     }
 
+    pub fn seat_aligned(&self) -> String {
+        if self.seat.len() == 0 {
+            return String::new()
+        }
+        format!("{:0>4}", self.seat).into()
+    }
+
     pub fn sequence(&self) -> &str {
         self.sequence.as_ref()
+    }
+
+    pub fn sequence_aligned(&self) -> String {
+        if self.sequence.len() == 0 {
+            return String::new()
+        }
+        format!("{:0>4}", self.sequence).into()
     }
 
     pub fn pax_status(&self) -> &str {
@@ -88,11 +109,11 @@ impl Segment {
 }
 
 #[derive(Debug, Clone)]
-struct BCBP {
+pub struct BCBP {
     ticket_flag: char,
     name_first: String,
     name_last: String,
-    segments: Vec<Segment>,
+    pub segments: Vec<Segment>,
     conditional_version: Option<char>,
     conditional_data: Option<String>,
     pax_type: Option<char>,
@@ -157,27 +178,6 @@ impl BCBP {
         self.ticket_flag
     }
 
-//     @property char passengerType() const pure nothrow @safe
-//     {
-//         return _passengerType;
-//     }
-
-//     @property char srcOfCheckIn() const pure nothrow @safe
-//     {
-//         return _srcOfCheckIn;
-//     }
-
-//     @property char srcOfBoardingPass() const pure nothrow @safe
-//     {
-//         return _srcOfBoardingPass;
-//     }
-
-//     @property string securityData() const
-//     {
-//         return _securityData;
-//     }
-//     //@property void securityData(in string v);
-
     pub fn build(&self) -> Result<String, String> {
 
         let mut ret = format!("M{}{:<20}{}", self.segments_count(), self.name(), self.ticket_flag);
@@ -190,36 +190,16 @@ impl BCBP {
                 s.dst_airport,
                 s.airline,
                 s.flight_code,
-                s.flight_day,
+                s.flight_day_aligned(),
                 s.compartment,
-                s.seat,
-                s.sequence,
+                s.seat_aligned(),
+                s.sequence_aligned(),
                 s.pax_status);
-//         ret.formattedWrite("%-7s%-3s%-3s%-3s%-5s%03d%-1s%-4s%-5s%-1s%02X",
-//             _pnr,
-//             _srcAirport,
-//             _dstAirport,
-//             _airline,
-//             _flight.rightJustify(4, '0'),
-//             _date.dayOfYear,
-//             _compartment,
-//             _seat.rightJustify(4, '0'),
-//             _sequence.rightJustify(4, '0'),
-//             _status,
-//             0x00 /* Extra length */);
-
         }
-
-        println!("");
-//         if (_securityData.length)
-//         {
-//             ret.formattedWrite("^1%02X%s", _securityData.length, _securityData);
-//         }
-//         return ret.data;
         Ok(ret)
     }
 
-    pub fn from(src: &str/*, int year = Clock.currTime.year*/) -> Result<BCBP, Error> {
+    pub fn from(src: &str) -> Result<BCBP, Error> {
         let src = src.to_uppercase();
 
         if src.len() < 60 {
@@ -363,7 +343,7 @@ mod tests {
     #[test]
     fn mandatory1() {
 
-        let src = "M1JOHN/SMITH          EABCDEF JFKSVOSU 1234A123Y123Z9876 000";
+        let src = "M1JOHN/SMITH          EABCDEF JFKSVOSU 1234A001Y001Z0007 000";
         let tmp = BCBP::from(src);
 
         assert!(tmp.is_ok());
@@ -379,12 +359,17 @@ mod tests {
         assert!(bcbp.segments[0].dst_airport()  == "SVO");
         assert!(bcbp.segments[0].airline()      == "SU");
         assert!(bcbp.segments[0].flight_code()  == "1234A");
-        assert!(bcbp.segments[0].flight_day()   == "123");
+        assert!(bcbp.segments[0].flight_day()   == "1");
+        assert!(bcbp.segments[0].flight_day_aligned()   == "001");
         assert!(bcbp.segments[0].compartment()  == 'Y');
-        assert!(bcbp.segments[0].seat()         == "123Z");
-        assert!(bcbp.segments[0].sequence()     == "9876");
+        assert!(bcbp.segments[0].seat()         == "1Z");
+        assert!(bcbp.segments[0].seat_aligned() == "001Z");
+        assert!(bcbp.segments[0].sequence()         == "7");
+        assert!(bcbp.segments[0].sequence_aligned() == "0007");
         assert!(bcbp.segments[0].pax_status()   == "0");
         assert!(bcbp.build().unwrap() == src);
+
+
     }
 
     #[test]
@@ -558,16 +543,16 @@ named!(bcbp_segment<&str, (Segment, &str)>,
         ) >>
         (
             Segment{
-                pnr:pnr.trim().to_string(),
-                src_airport:src.trim().to_string(),
-                dst_airport: dst.trim().to_string(),
-                airline:airline.trim().to_string(),
-                flight_code:flight_code.trim().to_string(),
-                flight_day:flight_day.trim().to_string(),
-                compartment:compartment,
-                seat:seat.trim().to_string(),
-                sequence:sequence.trim().to_string(),
-                pax_status:pax_status.trim().to_string(),
+                pnr: pnr.trim().into(),
+                src_airport: src.trim().into(),
+                dst_airport: dst.trim().into(),
+                airline: airline.trim().into(),
+                flight_code: flight_code.trim().into(),
+                flight_day: flight_day.trim().trim_left_matches('0').into(),
+                compartment: compartment,
+                seat: seat.trim().trim_left_matches('0').to_string(),
+                sequence: sequence.trim().trim_left_matches('0').into(),
+                pax_status: pax_status.trim().into(),
             },
             size_ext
         )
