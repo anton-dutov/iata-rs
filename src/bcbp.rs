@@ -1,7 +1,11 @@
-use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar};
 use std::str;
+use std::u32;
 use std::usize;
 use self::str::FromStr;
+
+use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar};
+use chrono::Duration;
+pub use chrono::prelude::*;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -23,10 +27,10 @@ pub struct Segment {
     dst_airport: String,
     airline: String,
     flight_code: String,
-    flight_day: String,
+    flight_day: u32,
     compartment: char,
     seat: String,
-    sequence: String,
+    sequence: u32,
     pax_status: String,
 }
 
@@ -38,10 +42,10 @@ impl Segment {
             src_airport: String::new(),
             dst_airport: String::new(),
             flight_code: String::new(),
-            flight_day: String::new(),
+            flight_day: 0,
             compartment: ' ',
             seat: String::new(),
-            sequence: String::new(),
+            sequence: 0,
             pax_status: String::new(),
         }
     }
@@ -66,12 +70,25 @@ impl Segment {
         self.flight_code.as_ref()
     }
 
-    pub fn flight_day(&self) -> &str {
-        self.flight_day.as_ref()
+    pub fn flight_day(&self) -> u32 {
+        self.flight_day
+    }
+
+    pub fn flight_date(&self, year: i32) -> NaiveDate {
+
+        let day = if self.flight_day > 0 && self.flight_day < 366 { self.flight_day } else { 1 };
+
+        NaiveDate::from_yo(year, day)
+    }
+
+    pub fn flight_date_current_year(&self) -> NaiveDate {
+        let now = Utc::today();
+
+        self.flight_date(now.year())
     }
 
     pub fn flight_day_aligned(&self) -> String {
-        if self.flight_day.len() == 0 {
+        if self.flight_day == 0 {
             return String::new()
         }
         format!("{:0>3}", self.flight_day).into()
@@ -92,12 +109,12 @@ impl Segment {
         format!("{:0>4}", self.seat).into()
     }
 
-    pub fn sequence(&self) -> &str {
-        self.sequence.as_ref()
+    pub fn sequence(&self) -> u32 {
+        self.sequence
     }
 
     pub fn sequence_aligned(&self) -> String {
-        if self.sequence.len() == 0 {
+        if self.sequence == 0 {
             return String::new()
         }
         format!("{:0>4}", self.sequence).into()
@@ -120,7 +137,7 @@ pub struct BCBP {
     doc_type: Option<char>,
     checkin_src: Option<char>,
     boardingpass_src: Option<char>,
-    boardingpass_day: Option<String>,
+    boardingpass_day: Option<u32>,
     boardingpass_airline: Option<String>,
     security_data_type: Option<char>,
     security_data: Option<String>,
@@ -173,9 +190,16 @@ impl BCBP {
         cnt as u8
     }
 
-
     pub fn conditional_verion(&self) -> char {
         self.ticket_flag
+    }
+
+    pub fn pax_type(&self) -> Option<char> {
+        self.pax_type
+    }
+
+    pub fn doc_type(&self) -> Option<char> {
+        self.pax_type
     }
 
     pub fn build(&self) -> Result<String, String> {
@@ -258,7 +282,20 @@ impl BCBP {
                                             let (first, last) = chunk.split_at(sz + 4);
 
                                             bcbp.conditional_version = Some(o.0);
-                                            bcbp.conditional_data    = Some(first.to_string());
+                                            bcbp.conditional_data    = Some(first.into());
+                                            bcbp.pax_type = o.2;
+                                            bcbp.checkin_src = o.3;
+                                            bcbp.boardingpass_src = o.4;
+                                            bcbp.doc_type = o.6;
+                                            // 0 ver: anychar >>
+                                            // 1 size: take!(2) >>
+                                            // 2 pax_type: opt!(complete!(anychar)) >>
+                                            // 3 checkin_src: opt!(complete!(anychar)) >>
+                                            // 4 boardingpass_src: opt!(complete!(anychar)) >>
+                                            // 5 boardingpass_day: opt!(complete!(take!(4))) >>
+                                            // 6 doc_type: opt!(complete!(anychar)) >>
+                                            // 7 boardingpass_airline: opt!(complete!(take!(3))) >>
+                                            // 8 tags: opt!(complete!(take!(13))) >>
 
                                             chunk = last;
 
@@ -310,7 +347,7 @@ impl BCBP {
 
 #[cfg(test)]
 mod tests {
-    use bcbp::{BCBP, Error};
+    use bcbp::*;
 
     #[test]
     fn errors() {
@@ -359,12 +396,13 @@ mod tests {
         assert!(bcbp.segments[0].dst_airport()  == "SVO");
         assert!(bcbp.segments[0].airline()      == "SU");
         assert!(bcbp.segments[0].flight_code()  == "1234A");
-        assert!(bcbp.segments[0].flight_day()   == "1");
+        assert!(bcbp.segments[0].flight_day()   == 1);
+        assert!(bcbp.segments[0].flight_date(2017) == NaiveDate::from_ymd(2017, 1, 1));
         assert!(bcbp.segments[0].flight_day_aligned()   == "001");
         assert!(bcbp.segments[0].compartment()  == 'Y');
         assert!(bcbp.segments[0].seat()         == "1Z");
         assert!(bcbp.segments[0].seat_aligned() == "001Z");
-        assert!(bcbp.segments[0].sequence()         == "7");
+        assert!(bcbp.segments[0].sequence()         == 7);
         assert!(bcbp.segments[0].sequence_aligned() == "0007");
         assert!(bcbp.segments[0].pax_status()   == "0");
         assert!(bcbp.build().unwrap() == src);
@@ -390,25 +428,25 @@ mod tests {
         assert!(bcbp.segments[0].dst_airport()  == "SVO");
         assert!(bcbp.segments[0].airline()      == "SU");
         assert!(bcbp.segments[0].flight_code()  == "1234");
-        assert!(bcbp.segments[0].flight_day()   == "207");
+        assert!(bcbp.segments[0].flight_day()   == 207);
         assert!(bcbp.segments[1].pnr()  == "ABCDEF");
         assert!(bcbp.segments[1].src_airport()  == "SVO");
         assert!(bcbp.segments[1].dst_airport()  == "LED");
         assert!(bcbp.segments[1].airline()      == "SU");
         assert!(bcbp.segments[1].flight_code()  == "5678");
-        assert!(bcbp.segments[1].flight_day()   == "210");
+        assert!(bcbp.segments[1].flight_day()   == 210);
         assert!(bcbp.segments[2].pnr()  == "ABCDEF");
         assert!(bcbp.segments[2].src_airport()  == "LED");
         assert!(bcbp.segments[2].dst_airport()  == "SVO");
         assert!(bcbp.segments[2].airline()      == "SU");
         assert!(bcbp.segments[2].flight_code()  == "9876");
-        assert!(bcbp.segments[2].flight_day()   == "215");
+        assert!(bcbp.segments[2].flight_day()   == 215);
         assert!(bcbp.segments[3].pnr()  == "ABCDEF");
         assert!(bcbp.segments[3].src_airport()  == "SVO");
         assert!(bcbp.segments[3].dst_airport()  == "JFK");
         assert!(bcbp.segments[3].airline()      == "SU");
         assert!(bcbp.segments[3].flight_code()  == "1357");
-        assert!(bcbp.segments[3].flight_day()   == "215");
+        assert!(bcbp.segments[3].flight_day()   == 215);
 
         println!("BLD{:?}\nSRC{:?}", bcbp.build().unwrap(), src);
 
@@ -436,19 +474,27 @@ mod tests {
         assert!(bcbp.segments[0].dst_airport()  == "SVO");
         assert!(bcbp.segments[0].airline()      == "SK");
         assert!(bcbp.segments[0].flight_code()  == "1234");
-        assert!(bcbp.segments[0].flight_day()   == "123");
+        assert!(bcbp.segments[0].flight_day()   == 123);
         assert!(bcbp.segments[1].pnr()  == "ABCDEF");
         assert!(bcbp.segments[1].src_airport()  == "SVO");
         assert!(bcbp.segments[1].dst_airport()  == "FRA");
         assert!(bcbp.segments[1].airline()      == "SU");
         assert!(bcbp.segments[1].flight_code()  == "5678");
-        assert!(bcbp.segments[1].flight_day()   == "135");
+        assert!(bcbp.segments[1].flight_day()   == 135);
         assert!(bcbp.segments[2].pnr()  == "ABCDEF");
         assert!(bcbp.segments[2].src_airport()  == "FRA");
         assert!(bcbp.segments[2].dst_airport()  == "JFK");
         assert!(bcbp.segments[2].airline()      == "SU");
         assert!(bcbp.segments[2].flight_code()  == "9876");
-        assert!(bcbp.segments[2].flight_day()   == "231");
+        assert!(bcbp.segments[2].flight_day()   == 231);
+    }
+}
+
+
+fn u32_from_str_force(src: &str, radix: u32) -> u32 {
+    match u32::from_str_radix(src.trim().trim_left_matches('0'), radix) {
+        Ok(v) => v,
+        _     => 0,
     }
 }
 
@@ -548,10 +594,10 @@ named!(bcbp_segment<&str, (Segment, &str)>,
                 dst_airport: dst.trim().into(),
                 airline: airline.trim().into(),
                 flight_code: flight_code.trim().into(),
-                flight_day: flight_day.trim().trim_left_matches('0').into(),
+                flight_day: u32_from_str_force(flight_day, 10),
                 compartment: compartment,
                 seat: seat.trim().trim_left_matches('0').to_string(),
-                sequence: sequence.trim().trim_left_matches('0').into(),
+                sequence: u32_from_str_force(sequence, 10),
                 pax_status: pax_status.trim().into(),
             },
             size_ext
@@ -559,7 +605,7 @@ named!(bcbp_segment<&str, (Segment, &str)>,
     )
 );
 
-named!(bcbp_ext_uniq<&str, (char, &str, Option<char>, Option<char>, Option<char>, Option<char>, Option<&str>, Option<&str>, Option<&str>)>,
+named!(bcbp_ext_uniq<&str, (char, &str, Option<char>, Option<char>, Option<char>, Option<&str>, Option<char>, Option<&str>, Option<&str>)>,
     do_parse!(
         add_return_error!(
             ErrorKind::Custom(2001),
@@ -578,10 +624,10 @@ named!(bcbp_ext_uniq<&str, (char, &str, Option<char>, Option<char>, Option<char>
             ver,
             size,
             pax_type,
-            doc_type,
             checkin_src,
             boardingpass_src,
             boardingpass_day,
+            doc_type,
             boardingpass_airline,
             tags
         )
