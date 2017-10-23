@@ -3,7 +3,7 @@ use std::u32;
 use std::usize;
 use self::str::FromStr;
 
-use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar};
+use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar, rest_s};
 use chrono::Duration;
 pub use chrono::prelude::*;
 
@@ -249,7 +249,7 @@ impl BCBP {
                             return Err(Error::Name)
                         }
                         bcbp.name_last  = name.0;
-                        bcbp.name_first = name.1.unwrap_or(String::from(""));
+                        bcbp.name_first = name.1.unwrap_or(String::from("")).trim().into();
                     },
                     _ => return Err(Error::Name)
                 }
@@ -356,40 +356,36 @@ mod tests {
             Err(e) => assert!(e == Error::DataLength),
         }
 
-        match BCBP::from("X1BRUNER/ROMAN        EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
+        match BCBP::from("X1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
             Ok(_)  => assert!(false),
             Err(e) => assert!(e == Error::FormatCode),
         }
 
-        match BCBP::from("M0BRUNER/ROMAN1       EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
+        match BCBP::from("M0BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
             Ok(_)  => assert!(false),
             Err(e) => assert!(e == Error::SegmentsCount)
         }
 
-        match BCBP::from("MABRUNER/ROMAN1       EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
+        match BCBP::from("MABRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
             Ok(_)  => assert!(false),
             Err(e) => assert!(e == Error::SegmentsCount)
-        }
-
-        match BCBP::from("M1BRUNER/ROMAN1       EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
-            Ok(_)  => assert!(false),
-            Err(e) => assert!(e == Error::Name)
         }
     }
 
     #[test]
     fn mandatory1() {
-
-        let src = "M1JOHN/SMITH          EABCDEF JFKSVOSU 1234A001Y001Z0007 000";
+        let src = "M1JOHN/SMITH JORDAN   EABCDEF JFKSVOSU 1234A001Y001Z0007 000";
         let tmp = BCBP::from(src);
+
+        print!("RES {:?}", tmp);
 
         assert!(tmp.is_ok());
 
         let bcbp = tmp.unwrap();
 
-        assert!(bcbp.name()        == "JOHN/SMITH");
+        assert!(bcbp.name()        == "JOHN/SMITH JORDAN");
         assert!(bcbp.name_last()   == "JOHN");
-        assert!(bcbp.name_first()  == "SMITH");
+        assert!(bcbp.name_first()  == "SMITH JORDAN");
         assert!(bcbp.ticket_flag()  == 'E');
         assert!(bcbp.segments[0].pnr() == "ABCDEF");
         assert!(bcbp.segments[0].src_airport()  == "JFK");
@@ -406,8 +402,6 @@ mod tests {
         assert!(bcbp.segments[0].sequence_aligned() == "0007");
         assert!(bcbp.segments[0].pax_status()   == "0");
         assert!(bcbp.build().unwrap() == src);
-
-
     }
 
     #[test]
@@ -458,6 +452,7 @@ mod tests {
         let src = "M3JOHN/SMITH          EABCDEF JFKSVOSK 1234 123M014C0050 35D>5180O 0276BSK              2A55559467513980 SK                         *30600000K09         ABCDEF SVOFRASU 5678 135Y013A0012 3372A55559467513990 SU SU 12345678             09         ABCDEF FRAJFKSU 9876 231Y022F0052 3372A55559467513990 SU SU 12345678             09         ";
         println!("|");
         let tmp = BCBP::from(src);
+        println!("TMP {:?}", tmp);
 
         assert!(tmp.is_ok());
 
@@ -524,19 +519,18 @@ named!(bcbp_main<&str, (char, &str, char)>,
     )
 );
 
-named!(bcbp_name<&str, (String, Option<String>, Option<String>)>,
+named!(bcbp_name<&str, (String, Option<String>)>,
     do_parse!(
         last:  map_res!(alpha, str::FromStr::from_str) >>
         first: opt!(complete!(
             preceded!(
             char!('/'),
-            map_res!(alpha, str::FromStr::from_str)
+            // map_res!(alt!(alphanumeric | space), str::FromStr::from_str)
+            map_res!(rest_s, str::FromStr::from_str)
         ))) >>
-        fill: opt!(complete!(map_res!(space, str::FromStr::from_str))) >>
         (
             last,
-            first,
-            fill
+            first
         )
     )
 );
