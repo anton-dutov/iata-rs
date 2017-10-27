@@ -603,7 +603,7 @@ named!(bcbp_ext_uniq<&str, (char, &str, Option<char>, Option<char>, Option<char>
     do_parse!(
         add_return_error!(
             ErrorKind::Custom(2001),
-            char!('>')
+            alt!(char!('>') | char!('<'))
         ) >>
         ver: anychar >>
         size: take!(2) >>
