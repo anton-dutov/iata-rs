@@ -582,7 +582,7 @@ mod tests {
             "JOHN/SMITH JORDAN   ",
             "VERYLONGESTLASTNAMED",
             "JOHN/SMITH          ",
-            "TAISIIA LUKMANOVA/  ",
+            "BRUNER ROMAN MR/    ",
         ];
 
         let answers = &[
@@ -590,14 +590,14 @@ mod tests {
             ("JOHN", Some("SMITH JORDAN")),
             ("VERYLONGESTLASTNAMED", None),
             ("JOHN", Some("SMITH")),
-            ("TAISIIA LUKMANOVA", None)
+            ("BRUNER ROMAN MR", None)
         ];
 
         for i in 0..names.len() {
             let (left, names) = bcbp_name(names[i]).unwrap();
-        
+
             assert!(left.is_empty());
-            
+
             let (last, first) = names;
             let (right_last, right_first) = answers[i];
             check_name(

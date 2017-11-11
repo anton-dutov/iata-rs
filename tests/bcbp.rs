@@ -148,18 +148,18 @@ fn conditional3() {
 
 #[test]
 fn surname_with_space() {
-    let src = "M1TAISIIA LUKMANOVA/  EMWPBDG SVOLEDSU 0036 315YNS  0049 362>5324OO7314BSU                                        2A5551993799397 1                          N";
+    let src = "M1IVANOVA VASILINA/   EABCDEF SVOLEDSU 0036 315YNS  0049 362>5324OO7314BSU                                        2A5551993799397 1                          N";
     println!("|");
     let tmp = BCBP::from(src);
     println!("TMP {:?}", tmp);
 
     let bcbp = tmp.unwrap();
 
-    assert!(bcbp.name()          == "TAISIIA LUKMANOVA/");
-    assert!(bcbp.name_last()     == "TAISIIA LUKMANOVA");
+    assert!(bcbp.name()          == "IVANOVA VASILINA/");
+    assert!(bcbp.name_last()     == "IVANOVA VASILINA");
     assert!(bcbp.name_first()    == "");
     assert!(bcbp.ticket_flag()   == 'E');
-    assert!(bcbp.segments[0].pnr()  == "MWPBDG");
+    assert!(bcbp.segments[0].pnr()  == "ABCDEF");
     assert!(bcbp.segments[0].src_airport()  == "SVO");
     assert!(bcbp.segments[0].dst_airport()  == "LED");
     assert!(bcbp.segments[0].airline()      == "SU");
