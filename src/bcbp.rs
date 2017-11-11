@@ -191,8 +191,24 @@ impl BCBP {
         cnt as u8
     }
 
-    pub fn conditional_verion(&self) -> char {
-        self.ticket_flag
+    pub fn conditional_version(&self) -> Option<char> {
+        self.conditional_version
+    }
+
+    pub fn checkin_src(&self) -> Option<char> {
+        self.checkin_src
+    }
+
+    pub fn boardingpass_src(&self) -> Option<char> {
+        self.boardingpass_src
+    }
+
+    pub fn boardingpass_day(&self) -> Option<u32> {
+        self.boardingpass_day
+    }
+
+    pub fn boardingpass_airline(&self) -> Option<&String> {
+        self.boardingpass_airline.as_ref()
     }
 
     pub fn pax_type(&self) -> Option<char> {
@@ -200,7 +216,7 @@ impl BCBP {
     }
 
     pub fn doc_type(&self) -> Option<char> {
-        self.pax_type
+        self.doc_type
     }
 
     pub fn build(&self) -> Result<String, String> {
@@ -294,7 +310,10 @@ impl BCBP {
                                             bcbp.pax_type = o.2;
                                             bcbp.checkin_src = o.3;
                                             bcbp.boardingpass_src = o.4;
+                                            bcbp.boardingpass_day = o.5.map(|x| u32_from_str_force(x, 10));
                                             bcbp.doc_type = o.6;
+                                            bcbp.boardingpass_airline = o.7.map(|x| x.trim_right().to_owned());
+
                                             // 0 ver: anychar >>
                                             // 1 size: take!(2) >>
                                             // 2 pax_type: opt!(complete!(anychar)) >>
@@ -388,21 +407,44 @@ named!(bcbp_main<&str, (char, &str, char)>,
     )
 );
 
-named!(bcbp_name<&str, (String, Option<String>)>,
-    do_parse!(
-        last:  map_res!(alpha, str::FromStr::from_str) >>
-        first: opt!(complete!(
-            preceded!(
-            char!('/'),
-            // map_res!(alt!(alphanumeric | space), str::FromStr::from_str)
-            map_res!(rest_s, str::FromStr::from_str)
-        ))) >>
-        (
-            last,
-            first
-        )
-    )
-);
+fn bcbp_name(input: &str) -> IResult<&str, (String, Option<String>)> {
+    let last_start_idx = 0;
+    let mut last_end_idx = 0;
+    let mut first_start_idx = 0;
+    let mut first_end_idx = 0;
+    let mut have_first = false;
+
+    // input is ASCII so we can do byte-wise indexing safely
+    for (idx, c) in input.char_indices() {
+        // If haven't consumed last name yet
+        if !have_first && c == '/' {
+            last_end_idx = idx;
+            have_first = true;
+            first_start_idx = idx + 1;
+            first_end_idx = input.len();
+        }
+    }
+
+    // if there is no first name, surname occupies whe whole name field
+    if !have_first {
+        last_end_idx = input.len();
+    }
+
+    // extract names
+    let last = input[last_start_idx..last_end_idx].trim_right().to_string();
+    let first = if have_first {
+        let first = input[first_start_idx..first_end_idx].trim_right();
+        if !first.is_empty() {
+            Some(first.to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    IResult::Done("", (last, first))
+}
 
 named!(bcbp_segment<&str, (Segment, &str)>,
     do_parse!(
@@ -523,3 +565,47 @@ named!(bcbp_ext_seg<&str, (&str, Option<&str>, Option<&str>, Option<char>, Optio
         )
     )
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_name(last: String, first: Option<String>, right_last: &str, right_first: Option<&str>) {
+        assert_eq!(&last, right_last);
+        assert_eq!(first, right_first.map(String::from));
+    }
+
+    #[test]
+    fn test_bcbp_name() {
+        let names = &[
+            "BRUNER/ROMAN MR     ",
+            "JOHN/SMITH JORDAN   ",
+            "VERYLONGESTLASTNAMED",
+            "JOHN/SMITH          ",
+            "TAISIIA LUKMANOVA/  ",
+        ];
+
+        let answers = &[
+            ("BRUNER", Some("ROMAN MR")),
+            ("JOHN", Some("SMITH JORDAN")),
+            ("VERYLONGESTLASTNAMED", None),
+            ("JOHN", Some("SMITH")),
+            ("TAISIIA LUKMANOVA", None)
+        ];
+
+        for i in 0..names.len() {
+            let (left, names) = bcbp_name(names[i]).unwrap();
+        
+            assert!(left.is_empty());
+            
+            let (last, first) = names;
+            let (right_last, right_first) = answers[i];
+            check_name(
+                last,
+                first,
+                right_last,
+                right_first
+            )
+        }
+    }
+}
