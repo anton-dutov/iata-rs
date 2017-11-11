@@ -146,3 +146,33 @@ fn conditional3() {
     assert!(bcbp.segments[2].flight_day()   == 231);
 }
 
+#[test]
+fn surname_with_space() {
+    let src = "M1TAISIIA LUKMANOVA/  EMWPBDG SVOLEDSU 0036 315YNS  0049 362>5324OO7314BSU                                        2A5551993799397 1                          N";
+    println!("|");
+    let tmp = BCBP::from(src);
+    println!("TMP {:?}", tmp);
+
+    let bcbp = tmp.unwrap();
+
+    assert!(bcbp.name()          == "TAISIIA LUKMANOVA/");
+    assert!(bcbp.name_last()     == "TAISIIA LUKMANOVA");
+    assert!(bcbp.name_first()    == "");
+    assert!(bcbp.ticket_flag()   == 'E');
+    assert!(bcbp.segments[0].pnr()  == "MWPBDG");
+    assert!(bcbp.segments[0].src_airport()  == "SVO");
+    assert!(bcbp.segments[0].dst_airport()  == "LED");
+    assert!(bcbp.segments[0].airline()      == "SU");
+    assert!(bcbp.segments[0].flight_code()  == "0036");
+    assert!(bcbp.segments[0].flight_day()   == 315);
+    assert!(bcbp.segments[0].seat()         == "NS");
+    assert!(bcbp.segments[0].sequence()     == 49);
+    assert!(bcbp.segments[0].pax_status()   == "3");
+    assert!(bcbp.conditional_version()      == Some('5'));
+    assert!(bcbp.pax_type()                 == Some('4'));
+    assert!(bcbp.checkin_src()              == Some('O'));
+    assert!(bcbp.boardingpass_src()         == Some('O'));
+    assert!(bcbp.boardingpass_day()         == Some(7314));
+    assert!(bcbp.boardingpass_airline()     == Some(&String::from("SU")));
+    assert!(bcbp.doc_type()                 == Some('B'));
+}
