@@ -260,7 +260,7 @@ impl BCBP {
                 for i in 0 .. legs_count {
                     match bcbp_segment(next_segment) {
                         IResult::Done(leg_rest, o)    => {
-                            let sz = usize::from_str_radix(o.1, 16).unwrap();
+                            let sz = usize::from_str_radix(o.1, 16).map_err(|_| Error::CoditionalDataSize)?;
 
                             if sz > leg_rest.len() {
                                 return Err(Error::CoditionalDataSize)
@@ -281,13 +281,13 @@ impl BCBP {
                                         IResult::Done(_, o)    => {
                                             //println!("U== {:?}", o);
 
-                                            let sz = usize::from_str_radix(o.1, 16).unwrap();
-
-                                            if sz > chunk.len() {
+                                            let sz  = usize::from_str_radix(o.1, 16).map_err(|_| Error::CoditionalDataSize)?;
+                                            let split_pos = sz + 4;
+                                            if  split_pos > chunk.len() {
                                                 return Err(Error::CoditionalDataSize)
                                             }
 
-                                            let (first, last) = chunk.split_at(sz + 4);
+                                            let (first, last) = chunk.split_at(split_pos);
 
                                             bcbp.conditional_version = Some(o.0);
                                             bcbp.conditional_data    = Some(first.into());
@@ -315,13 +315,13 @@ impl BCBP {
 
                                 match bcbp_ext_seg(chunk) {
                                     IResult::Done(_, o)    => {
-                                        let sz = usize::from_str_radix(o.0, 16).unwrap();
-
-                                        if sz > chunk.len() {
+                                        let sz = usize::from_str_radix(o.0, 16).map_err(|_| Error::CoditionalDataSize)?;
+                                        let split_pos = sz + 2;
+                                        if  split_pos > chunk.len() {
                                             return Err(Error::CoditionalDataSize)
                                         }
 
-                                        let (_, last) = chunk.split_at(sz + 2);
+                                        let (_, last) = chunk.split_at(split_pos);
 
                                         chunk = last;
 
