@@ -55,20 +55,40 @@ impl Segment {
         self.pnr.as_ref()
     }
 
+    pub fn pnr_set<S>(&mut self, pnr: S) where S: Into<String> {
+        self.pnr = pnr.into();
+    }
+
     pub fn airline(&self) -> &str {
         self.airline.as_ref()
+    }
+
+    pub fn airline_mut(&mut self) -> &mut String {
+        &mut self.airline
     }
 
     pub fn src_airport(&self) -> &str {
         self.src_airport.as_ref()
     }
 
+    pub fn src_airport_mut(&mut self) -> &mut String {
+        &mut self.src_airport
+    }
+
     pub fn dst_airport(&self) -> &str {
         self.dst_airport.as_ref()
     }
 
+    pub fn dst_airport_mut(&mut self) -> &mut String {
+        &mut self.dst_airport
+    }
+
     pub fn flight_code(&self) -> &str {
         self.flight_code.as_ref()
+    }
+
+    pub fn flight_code_set<S>(&mut self, code: S) where S: Into<String> {
+        self.flight_code = code.into();
     }
 
     pub fn flight_day(&self) -> u32 {
@@ -95,12 +115,29 @@ impl Segment {
         format!("{:0>3}", self.flight_day).into()
     }
 
+    pub fn flight_date_set(&mut self, date: NaiveDate) {
+        self.flight_day = date.ordinal();
+    }
+
     pub fn compartment(&self) -> char {
         self.compartment
     }
 
+    pub fn compartment_set(&mut self, c: char) -> bool {
+        // if c.is_ascii_alphabetic() {
+            self.compartment = c;
+            true
+        // } else {
+        //     false
+        // }
+    }
+
     pub fn seat(&self) -> &str {
         self.seat.as_ref()
+    }
+
+    pub fn seat_set<S>(&mut self, seat: S) where S: Into<String>{
+        self.seat = seat.into();
     }
 
     pub fn seat_aligned(&self) -> String {
@@ -112,6 +149,10 @@ impl Segment {
 
     pub fn sequence(&self) -> u32 {
         self.sequence
+    }
+
+    pub fn sequence_mut(&mut self) -> &mut u32 {
+        &mut self.sequence
     }
 
     pub fn sequence_aligned(&self) -> String {
@@ -175,8 +216,16 @@ impl BCBP {
         self.name_last.as_ref()
     }
 
+    pub fn name_last_mut(&mut self) -> &mut String {
+        &mut self.name_last
+    }
+
     pub fn name_first(&self) -> &str {
         self.name_first.as_ref()
+    }
+
+    pub fn name_first_mut(&mut self) -> &mut String {
+        &mut self.name_first
     }
 
     pub fn ticket_flag(&self) -> char {
@@ -189,6 +238,14 @@ impl BCBP {
             cnt = 9;
         }
         cnt as u8
+    }
+
+    pub fn segments(&self) -> &Vec<Segment> {
+        &self.segments
+    }
+
+    pub fn segments_mut(&mut self) -> &mut Vec<Segment> {
+        &mut self.segments
     }
 
     pub fn conditional_version(&self) -> Option<char> {

@@ -1,6 +1,6 @@
 [package]
 name    = "iata"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     "Anton Dutov <anton.dutov@gmail.com>",
     "Mike Lubinets <lubinetsm@yandex.ru>",
