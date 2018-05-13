@@ -30,8 +30,8 @@ pub struct Segment {
     flight_code: String,
     flight_day: u32,
     compartment: char,
-    seat: String,
-    sequence: u32,
+    seat: Option<String>,
+    sequence: Option<u32>,
     pax_status: String,
 }
 
@@ -45,8 +45,8 @@ impl Segment {
             flight_code: String::new(),
             flight_day: 0,
             compartment: ' ',
-            seat: String::new(),
-            sequence: 0,
+            seat: None,
+            sequence: None,
             pax_status: String::new(),
         }
     }
@@ -128,38 +128,41 @@ impl Segment {
             self.compartment = c;
             true
         // } else {
-        //     false
+            // false
         // }
     }
 
-    pub fn seat(&self) -> &str {
-        self.seat.as_ref()
+    pub fn seat(&self) -> Option<&str> {
+        self.seat.as_ref().map(String::as_str)
     }
 
     pub fn seat_set<S>(&mut self, seat: S) where S: Into<String>{
-        self.seat = seat.into();
+        self.seat = Some(seat.into());
     }
 
     pub fn seat_aligned(&self) -> String {
-        if self.seat.len() == 0 {
+
+        if let Some(ref seat) = self.seat {
+            format!("{:0>4}", seat).into()
+        } else {
             return String::new()
         }
-        format!("{:0>4}", self.seat).into()
     }
 
-    pub fn sequence(&self) -> u32 {
+    pub fn sequence(&self) -> Option<u32> {
         self.sequence
     }
 
-    pub fn sequence_mut(&mut self) -> &mut u32 {
+    pub fn sequence_mut(&mut self) -> &mut Option<u32> {
         &mut self.sequence
     }
 
     pub fn sequence_aligned(&self) -> String {
-        if self.sequence == 0 {
+        if let Some(seq) = self.sequence {
+            format!("{:0>4}", seq).into()
+        } else {
             return String::new()
         }
-        format!("{:0>4}", self.sequence).into()
     }
 
     pub fn pax_status(&self) -> &str {
@@ -438,6 +441,21 @@ fn u32_from_str_force(src: &str, radix: u32) -> u32 {
     }
 }
 
+fn u32_from_str_opt(src: &str, radix: u32) -> Option<u32> {
+    u32::from_str_radix(src.trim().trim_left_matches('0'), radix).ok()
+}
+
+fn seat_opt(seat: &str) -> Option<String> {
+    let tmp = seat.trim().trim_left_matches('0').to_string();
+
+    if tmp.len() <= 1 {
+        None
+    } else {
+        Some(tmp)
+    }
+}
+
+
 named!(bcbp_main<&str, (char, &str, char)>,
     do_parse!(
         add_return_error!(
@@ -558,8 +576,8 @@ named!(bcbp_segment<&str, (Segment, &str)>,
                 flight_code: flight_code.trim().into(),
                 flight_day: u32_from_str_force(flight_day, 10),
                 compartment: compartment,
-                seat: seat.trim().trim_left_matches('0').to_string(),
-                sequence: u32_from_str_force(sequence, 10),
+                seat: seat_opt(seat),
+                sequence: u32_from_str_opt(sequence, 10),
                 pax_status: pax_status.trim().into(),
             },
             size_ext

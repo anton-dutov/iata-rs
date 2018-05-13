@@ -5,4 +5,4 @@ Implements a BCBP parser/builder for the boarding pass format described in IATA 
 
 
 ### References
-See docs in 'ref' folder 
+See docs in 'ref' folder

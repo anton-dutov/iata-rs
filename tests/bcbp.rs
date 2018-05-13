@@ -58,9 +58,9 @@ fn mandatory1() {
     assert!(bcbp.segments[0].flight_date(2017) == NaiveDate::from_ymd(2017, 1, 1));
     assert!(bcbp.segments[0].flight_day_aligned()   == "001");
     assert!(bcbp.segments[0].compartment()  == 'Y');
-    assert!(bcbp.segments[0].seat()         == "1Z");
+    assert!(bcbp.segments[0].seat()         == Some("1Z"));
     assert!(bcbp.segments[0].seat_aligned() == "001Z");
-    assert!(bcbp.segments[0].sequence()         == 7);
+    assert!(bcbp.segments[0].sequence()         == Some(7));
     assert!(bcbp.segments[0].sequence_aligned() == "0007");
     assert!(bcbp.segments[0].pax_status()   == "0");
     assert!(bcbp.build().unwrap() == src);
@@ -165,8 +165,8 @@ fn surname_with_space() {
     assert!(bcbp.segments[0].airline()      == "SU");
     assert!(bcbp.segments[0].flight_code()  == "0036");
     assert!(bcbp.segments[0].flight_day()   == 315);
-    assert!(bcbp.segments[0].seat()         == "NS");
-    assert!(bcbp.segments[0].sequence()     == 49);
+    assert!(bcbp.segments[0].seat()         == Some("NS"));
+    assert!(bcbp.segments[0].sequence()     == Some(49));
     assert!(bcbp.segments[0].pax_status()   == "3");
     assert!(bcbp.conditional_version()      == Some('5'));
     assert!(bcbp.pax_type()                 == Some('4'));
