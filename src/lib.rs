@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate nom;
-extern crate chrono;
+#[macro_use] extern crate nom;
 
 pub mod bcbp;

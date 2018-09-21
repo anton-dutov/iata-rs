@@ -1,28 +1,27 @@
 use std::str;
 use std::u32;
 use std::usize;
-use self::str::FromStr;
 
-use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar, rest_s};
-use chrono::Duration;
+use nom::{
+    IResult,
+    ErrorKind,
+    anychar,
+    simple_errors::Context
+};
+
+// use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar, rest_s};
+// use chrono::Duration;
 pub use chrono::prelude::*;
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    DataLength,
-    FormatCode,
-    SegmentsCount,
-    Format,
-    Name,
-    Date,
-    CoditionalData,
-    CoditionalDataSize,
-    SecurityDataSize,
-    SecurityData,
-}
+mod errors;
+
+pub use crate::bcbp::errors::{
+    ParseError,
+    FixError
+};
 
 #[derive(Debug, Clone)]
-pub struct Segment {
+pub struct Leg {
     pnr: String,
     src_airport: String,
     dst_airport: String,
@@ -35,9 +34,9 @@ pub struct Segment {
     pax_status: String,
 }
 
-impl Segment {
-    pub fn new() -> Segment {
-        Segment {
+impl Leg {
+    pub fn new() -> Leg {
+        Leg {
             pnr: String::new(),
             airline: String::new(),
             src_airport: String::new(),
@@ -175,7 +174,7 @@ pub struct BCBP {
     ticket_flag: char,
     name_first: String,
     name_last: String,
-    pub segments: Vec<Segment>,
+    pub legs: Vec<Leg>,
     conditional_version: Option<char>,
     conditional_data: Option<String>,
     pax_type: Option<char>,
@@ -189,13 +188,12 @@ pub struct BCBP {
 }
 
 impl BCBP {
-
     pub fn new() -> BCBP {
         BCBP {
             name_first: String::new(),
             name_last:  String::new(),
             ticket_flag: ' ',
-            segments: Vec::new(),
+            legs: Vec::new(),
             conditional_version: None,
             conditional_data: None,
             pax_type: None,
@@ -235,20 +233,20 @@ impl BCBP {
         self.ticket_flag
     }
 
-    pub fn segments_count(&self) -> u8 {
-        let mut cnt = self.segments.len();
+    pub fn legs_count(&self) -> u8 {
+        let mut cnt = self.legs.len();
         if cnt > 9 {
             cnt = 9;
         }
         cnt as u8
     }
 
-    pub fn segments(&self) -> &Vec<Segment> {
-        &self.segments
+    pub fn legs(&self) -> &Vec<Leg> {
+        &self.legs
     }
 
-    pub fn segments_mut(&mut self) -> &mut Vec<Segment> {
-        &mut self.segments
+    pub fn segments_mut(&mut self) -> &mut Vec<Leg> {
+        &mut self.legs
     }
 
     pub fn conditional_version(&self) -> Option<char> {
@@ -281,9 +279,9 @@ impl BCBP {
 
     pub fn build(&self) -> Result<String, String> {
 
-        let mut ret = format!("M{}{:<20}{}", self.segments_count(), self.name(), self.ticket_flag);
+        let mut ret = format!("M{}{:<20}{}", self.legs_count(), self.name(), self.ticket_flag);
 
-        for s in &self.segments {
+        for s in &self.legs {
             ret = format!("{}{:<7}{:<3}{:<3}{:<3}{:<5}{:3}{:1}{:>4}{:<5}{:1}00",
                 ret,
                 s.pnr,
@@ -300,52 +298,52 @@ impl BCBP {
         Ok(ret)
     }
 
-    pub fn from(src: &str) -> Result<BCBP, Error> {
+    pub fn from(src: &str) -> Result<BCBP, ParseError> {
         let src = src.to_uppercase();
 
         if src.len() < 60 {
-            return Err(Error::DataLength)
+            Err(ParseError::DataLength)?
         }
 
         let mut bcbp = BCBP::new();
 
         match bcbp_main(src.as_ref()) {
-            IResult::Done(rest, parts)    => {
+            Ok((rest, parts))    => {
 
                 let legs_count = parts.0 as i8 - '0' as i8;
 
                 if legs_count < 1 || legs_count > 9 {
-                    return Err(Error::SegmentsCount)
+                    Err(ParseError::LegsCount)?
                 }
 
                 bcbp.ticket_flag = parts.2;
 
                 match bcbp_name(parts.1) {
-                    IResult::Done(name_rest, name)    => {
+                    Ok((name_rest, name))    => {
                         if name_rest != "" {
-                            return Err(Error::Name)
+                            Err(ParseError::Name)?
                         }
                         bcbp.name_last  = name.0;
-                        bcbp.name_first = name.1.unwrap_or(String::from("")).trim().into();
+                        bcbp.name_first = name.1.unwrap_or_default().trim().into();
                     },
-                    _ => return Err(Error::Name)
+                    _ => Err(ParseError::Name)?
                 }
 
                 let mut next_segment = rest;
 
                 for i in 0 .. legs_count {
-                    match bcbp_segment(next_segment) {
-                        IResult::Done(leg_rest, o)    => {
-                            let sz = usize::from_str_radix(o.1, 16).map_err(|_| Error::CoditionalDataSize)?;
+                    match bcbp_leg(next_segment) {
+                        Ok((leg_rest, o))    => {
+                            let sz = usize::from_str_radix(o.1, 16).map_err(|_| ParseError::CoditionalDataSize)?;
 
                             if sz > leg_rest.len() {
-                                return Err(Error::CoditionalDataSize)
+                                Err(ParseError::CoditionalDataSize)?
                             }
 
                             let (first, last) = leg_rest.split_at(sz);
 
                             // #[cfg(test)] println!("{:?} | {:?}", first, last);
-                            bcbp.segments.push(o.0);
+                            bcbp.legs.push(o.0);
 
                             next_segment = last;
 
@@ -354,13 +352,13 @@ impl BCBP {
                             if sz != 0 {
                                 if i == 0 {
                                     match bcbp_ext_uniq(chunk) {
-                                        IResult::Done(_, o)    => {
+                                        Ok((_, o)) => {
                                             //println!("U== {:?}", o);
 
-                                            let sz  = usize::from_str_radix(o.1, 16).map_err(|_| Error::CoditionalDataSize)?;
+                                            let sz  = usize::from_str_radix(o.1, 16).map_err(|_| ParseError::CoditionalDataSize)?;
                                             let split_pos = sz + 4;
                                             if  split_pos > chunk.len() {
-                                                return Err(Error::CoditionalDataSize)
+                                                Err(ParseError::CoditionalDataSize)?
                                             }
 
                                             let (first, last) = chunk.split_at(split_pos);
@@ -388,16 +386,16 @@ impl BCBP {
 
                                             //println!("U>> {:?}", chunk);
                                         },
-                                        _ => return Err(Error::CoditionalData)
+                                        _ => Err(ParseError::CoditionalData)?
                                     }
                                 }
 
                                 match bcbp_ext_seg(chunk) {
-                                    IResult::Done(_, o)    => {
-                                        let sz = usize::from_str_radix(o.0, 16).map_err(|_| Error::CoditionalDataSize)?;
+                                    Ok((_, o)) => {
+                                        let sz = usize::from_str_radix(o.0, 16).map_err(|_| ParseError::CoditionalDataSize)?;
                                         let split_pos = sz + 2;
                                         if  split_pos > chunk.len() {
-                                            return Err(Error::CoditionalDataSize)
+                                            Err(ParseError::CoditionalDataSize)?
                                         }
 
                                         let (_, last) = chunk.split_at(split_pos);
@@ -407,26 +405,32 @@ impl BCBP {
                                         #[cfg(test)] println!("S>> {:?}", chunk);
 
                                     },
-                                    _ => return Err(Error::CoditionalData)
+                                    _ => Err(ParseError::CoditionalData)?
                                 }
 
                             }
                         },
-                        IResult::Error(e)      => println!("{:?}", e),
-                        IResult::Incomplete(_) => {
-                            return Err(Error::DataLength)
+                        Err(e) => {
+                            if e.is_incomplete() {
+                                Err(ParseError::DataLength)?
+                            }
+                            println!("{:?}", e);
                         }
                     }
                 }
             },
-            IResult::Error(e) => {
-                match e {
-                    ErrorKind::Custom(1) => return Err(Error::FormatCode),
-                    _ => return Err(Error::Format),
+            Err(e) => {
+
+                if e.is_incomplete() {
+                    Err(ParseError::DataLength)?
                 }
-            },
-            IResult::Incomplete(_) => {
-                return Err(Error::DataLength)
+
+                match e {
+                    nom::Err::Error(Context::Code(_, ErrorKind::Custom(1))) => {
+                        Err(ParseError::FormatCode)?
+                    }
+                    _ => Err(ParseError::Format)?
+                }
             }
         }
 
@@ -518,10 +522,10 @@ fn bcbp_name(input: &str) -> IResult<&str, (String, Option<String>)> {
         None
     };
 
-    IResult::Done("", (last, first))
+    Ok(("", (last, first)))
 }
 
-named!(bcbp_segment<&str, (Segment, &str)>,
+named!(bcbp_leg<&str, (Leg, &str)>,
     do_parse!(
         pnr: add_return_error!(
             ErrorKind::Custom(1001),
@@ -568,7 +572,7 @@ named!(bcbp_segment<&str, (Segment, &str)>,
             take!(2)
         ) >>
         (
-            Segment{
+            Leg {
                 pnr: pnr.trim().into(),
                 src_airport: src.trim().into(),
                 dst_airport: dst.trim().into(),
@@ -640,6 +644,21 @@ named!(bcbp_ext_seg<&str, (&str, Option<&str>, Option<&str>, Option<char>, Optio
         )
     )
 );
+
+pub fn fix_length(src: &str) -> Result<String, FixError> {
+
+    if src.len() < 60 {
+        Err(FixError::InsufficientDataLength)?
+    }
+
+    let mut tmp = src.to_owned();
+
+    // Minimal
+    tmp.truncate(58);
+    tmp.push_str("00");
+
+    Ok(tmp)
+}
 
 #[cfg(test)]
 mod tests {
