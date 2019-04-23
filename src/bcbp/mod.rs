@@ -4,9 +4,7 @@ use std::usize;
 
 use nom::{
     IResult,
-    ErrorKind,
     anychar,
-    simple_errors::Context
 };
 
 // use nom::{IResult, ErrorKind, alpha, alphanumeric, digit, space, anychar, rest_s};
@@ -20,36 +18,78 @@ pub use crate::bcbp::errors::{
     FixError
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum PaxStatus {
+    None,
+    Other(char),
+}
+
+impl Default for PaxStatus {
+    fn default() -> Self { PaxStatus::None }
+}
+
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PaxType {
+    None,            // ' '
+    Adult,           // 0
+    Male,            // 1
+    Female,          // 2
+    Child,           // 3
+    Infant,          // 4
+    CabinBaggage,    // 5
+    AdultWithInfant, // 6
+    Other(char),
+}
+
+impl Default for PaxType {
+    fn default() -> Self { PaxType::None }
+}
+
+impl PaxType {
+    pub fn from_char(t: char) -> PaxType {
+        use PaxType::*;
+        match t {
+            ' ' => None,
+            '0' => Adult,
+            '1' => Male,
+            '2' => Female,
+            '3' => Child,
+            '4' => Infant,
+            '6' => CabinBaggage,
+            '7' => AdultWithInfant,
+            _   => Other(t)
+        }
+    }
+}
+
+
+#[derive(Debug, Default, Clone)]
 pub struct Leg {
     pnr: String,
     src_airport: String,
     dst_airport: String,
     airline: String,
     flight_code: String,
-    flight_day: u32,
-    compartment: char,
+    pub flight_day: u16,
+    pub compartment: char,
     seat: Option<String>,
-    sequence: Option<u32>,
-    pax_status: String,
+    pub airline_num: Option<u16>,
+    pub sequence: Option<u16>,
+    pub pax_status: char,
+    pub document_num: Option<String>,
+    // Selectee
+    // marketing_airline
+    ff_airline: Option<String>,
+    ff_number: Option<String>,
+    fast_track: Option<char>,
+    // ID/AD indicator
+    // bag allowance
+    // data
+    var: Option<String>,
 }
 
 impl Leg {
-    pub fn new() -> Leg {
-        Leg {
-            pnr: String::new(),
-            airline: String::new(),
-            src_airport: String::new(),
-            dst_airport: String::new(),
-            flight_code: String::new(),
-            flight_day: 0,
-            compartment: ' ',
-            seat: None,
-            sequence: None,
-            pax_status: String::new(),
-        }
-    }
-
     pub fn pnr(&self) -> &str {
         self.pnr.as_ref()
     }
@@ -90,15 +130,11 @@ impl Leg {
         self.flight_code = code.into();
     }
 
-    pub fn flight_day(&self) -> u32 {
-        self.flight_day
-    }
-
     pub fn flight_date(&self, year: i32) -> NaiveDate {
 
         let day = if self.flight_day > 0 && self.flight_day < 366 { self.flight_day } else { 1 };
 
-        NaiveDate::from_yo(year, day)
+        NaiveDate::from_yo(year, u32::from(day))
     }
 
     pub fn flight_date_current_year(&self) -> NaiveDate {
@@ -111,24 +147,11 @@ impl Leg {
         if self.flight_day == 0 {
             return String::new()
         }
-        format!("{:0>3}", self.flight_day).into()
+        format!("{:0>3}", self.flight_day)
     }
 
     pub fn flight_date_set(&mut self, date: NaiveDate) {
-        self.flight_day = date.ordinal();
-    }
-
-    pub fn compartment(&self) -> char {
-        self.compartment
-    }
-
-    pub fn compartment_set(&mut self, c: char) -> bool {
-        // if c.is_ascii_alphabetic() {
-            self.compartment = c;
-            true
-        // } else {
-            // false
-        // }
+        self.flight_day = date.ordinal() as u16;
     }
 
     pub fn seat(&self) -> Option<&str> {
@@ -142,71 +165,40 @@ impl Leg {
     pub fn seat_aligned(&self) -> String {
 
         if let Some(ref seat) = self.seat {
-            format!("{:0>4}", seat).into()
+            format!("{:0>4}", seat)
         } else {
             return String::new()
         }
-    }
-
-    pub fn sequence(&self) -> Option<u32> {
-        self.sequence
-    }
-
-    pub fn sequence_mut(&mut self) -> &mut Option<u32> {
-        &mut self.sequence
     }
 
     pub fn sequence_aligned(&self) -> String {
         if let Some(seq) = self.sequence {
-            format!("{:0>4}", seq).into()
+            format!("{:0>4}", seq)
         } else {
             return String::new()
         }
     }
-
-    pub fn pax_status(&self) -> &str {
-        self.pax_status.as_ref()
-    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct BCBP {
-    ticket_flag: char,
+    pub version: Option<char>,
+    pub pax_type: PaxType,
+    pub doc_type: Option<char>,
     name_first: String,
     name_last: String,
+    pub ticket_flag: char,
     pub legs: Vec<Leg>,
-    conditional_version: Option<char>,
-    conditional_data: Option<String>,
-    pax_type: Option<char>,
-    doc_type: Option<char>,
-    checkin_src: Option<char>,
-    boardingpass_src: Option<char>,
-    boardingpass_day: Option<u32>,
+    pub bagtags: Vec<String>,
+    pub checkin_src: Option<char>,
+    pub boardingpass_src: Option<char>,
+    pub boardingpass_day: Option<u16>,
     boardingpass_airline: Option<String>,
-    security_data_type: Option<char>,
+    pub security_data_type: Option<char>,
     security_data: Option<String>,
 }
 
 impl BCBP {
-    pub fn new() -> BCBP {
-        BCBP {
-            name_first: String::new(),
-            name_last:  String::new(),
-            ticket_flag: ' ',
-            legs: Vec::new(),
-            conditional_version: None,
-            conditional_data: None,
-            pax_type: None,
-            doc_type: None,
-            checkin_src: None,
-            boardingpass_src: None,
-            boardingpass_day: None,
-            boardingpass_airline: None,
-            security_data_type: None,
-            security_data: None,
-        }
-    }
-
     pub fn name(&self) -> String {
         let mut tmp = format!("{}/{}", self.name_last, self.name_first);
         tmp.truncate(20);
@@ -229,10 +221,6 @@ impl BCBP {
         &mut self.name_first
     }
 
-    pub fn ticket_flag(&self) -> char {
-        self.ticket_flag
-    }
-
     pub fn legs_count(&self) -> u8 {
         let mut cnt = self.legs.len();
         if cnt > 9 {
@@ -245,36 +233,16 @@ impl BCBP {
         &self.legs
     }
 
-    pub fn segments_mut(&mut self) -> &mut Vec<Leg> {
+    pub fn legs_mut(&mut self) -> &mut Vec<Leg> {
         &mut self.legs
-    }
-
-    pub fn conditional_version(&self) -> Option<char> {
-        self.conditional_version
-    }
-
-    pub fn checkin_src(&self) -> Option<char> {
-        self.checkin_src
-    }
-
-    pub fn boardingpass_src(&self) -> Option<char> {
-        self.boardingpass_src
-    }
-
-    pub fn boardingpass_day(&self) -> Option<u32> {
-        self.boardingpass_day
     }
 
     pub fn boardingpass_airline(&self) -> Option<&String> {
         self.boardingpass_airline.as_ref()
     }
 
-    pub fn pax_type(&self) -> Option<char> {
-        self.pax_type
-    }
-
-    pub fn doc_type(&self) -> Option<char> {
-        self.doc_type
+    pub fn pax_type(&self) -> PaxType {
+        self.pax_type.clone()
     }
 
     pub fn build(&self) -> Result<String, String> {
@@ -302,134 +270,161 @@ impl BCBP {
         let src = src.to_uppercase();
 
         if src.len() < 60 {
-            Err(ParseError::DataLength)?
+            Err(ParseError::MandatoryDataSize)?
         }
 
-        let mut bcbp = BCBP::new();
+        let code = &src[0..1];
+        let legs = &src[1..2];
+        let name = &src[2..22];
+        let flag = &src[22..23];
+        let rest =  &src[23..];
 
-        match bcbp_main(src.as_ref()) {
-            Ok((rest, parts))    => {
+        if code != "M" {
+            Err(ParseError::InvalidFormatCode(code.chars().next().unwrap_or_default()))?
+        }
 
-                let legs_count = parts.0 as i8 - '0' as i8;
+        let legs = usize::from_str_radix(legs, 10).map_err(|_| ParseError::InvalidLegsCount)?;
 
-                if legs_count < 1 || legs_count > 9 {
-                    Err(ParseError::LegsCount)?
+        if legs < 1 || legs > 9 {
+            Err(ParseError::InvalidLegsCount)?
+        }
+
+        let mut bcbp = BCBP::default();
+
+        match bcbp_name(name) {
+            Ok((name_rest, name))    => {
+                if name_rest != "" {
+                    Err(ParseError::Name)?
                 }
+                bcbp.name_last  = name.0;
+                bcbp.name_first = name.1.unwrap_or_default().trim().into();
+            },
+            _ => Err(ParseError::Name)?
+        }
 
-                bcbp.ticket_flag = parts.2;
+        bcbp.ticket_flag = flag.chars().next().ok_or_else(|| ParseError::InvalidFormat)?;
 
-                match bcbp_name(parts.1) {
-                    Ok((name_rest, name))    => {
-                        if name_rest != "" {
-                            Err(ParseError::Name)?
+        let mut next_segment = rest;
+
+        for i in 0 .. legs {
+            match bcbp_leg(next_segment) {
+                Ok((leg_rest, o))    => {
+                    let sz = usize::from_str_radix(o.1, 16).map_err(|_| ParseError::CoditionalDataSize)?;
+
+                    if sz > leg_rest.len() {
+                        Err(ParseError::CoditionalDataSize)?
+                    }
+
+                    let (first, last) = leg_rest.split_at(sz);
+
+                    bcbp.legs.push(o.0);
+
+                    next_segment  = last;
+
+                    let mut chunk = first;
+
+                    if sz == 0 {
+                        continue;
+                    }
+
+                    // Extended: Unique data
+                    if i == 0 {
+                        let tag = chunk[0..1].chars().next().unwrap_or_default();
+
+                        if tag != '<' && tag != '>' {
+                            Err(ParseError::InvalidVersionBegin(tag))?
                         }
-                        bcbp.name_last  = name.0;
-                        bcbp.name_first = name.1.unwrap_or_default().trim().into();
-                    },
-                    _ => Err(ParseError::Name)?
-                }
 
-                let mut next_segment = rest;
+                        bcbp.version = Some(chunk[1..2].chars().next().unwrap_or_default());
 
-                for i in 0 .. legs_count {
-                    match bcbp_leg(next_segment) {
-                        Ok((leg_rest, o))    => {
-                            let sz = usize::from_str_radix(o.1, 16).map_err(|_| ParseError::CoditionalDataSize)?;
 
-                            if sz > leg_rest.len() {
-                                Err(ParseError::CoditionalDataSize)?
-                            }
+                        chunk =  &chunk[2..];
 
-                            let (first, last) = leg_rest.split_at(sz);
+                        // 1 size: take!(2) >>
+                        // 2 pax_type: opt!(complete!(anychar)) >>
+                        // 3 checkin_src: opt!(complete!(anychar)) >>
+                        // 4 boardingpass_src: opt!(complete!(anychar)) >>
+                        // 5 boardingpass_day: opt!(complete!(take!(4))) >>
+                        // 6 doc_type: opt!(complete!(anychar)) >>
+                        // 7 boardingpass_airline: opt!(complete!(take!(3))) >>
+                        // 8 tags: opt!(complete!(take!(13))) >>
 
-                            // #[cfg(test)] println!("{:?} | {:?}", first, last);
-                            bcbp.legs.push(o.0);
+                        match bcbp_ext_v1(chunk) {
+                            Ok((rest, o)) => {
+                                // println!("U << {:?}", chunk);
 
-                            next_segment = last;
+                                let sz  = usize::from_str_radix(o.0, 16).map_err(|_| ParseError::CoditionalDataSize)?;
+                                let split_pos = sz + 2;
+                                if  split_pos > chunk.len() {
+                                    Err(ParseError::CoditionalDataSize)?
+                                }
 
-                            let mut chunk = first;
+                                let (_first, last) = chunk.split_at(split_pos);
+                                // println!("U [REST] {:?}", rest);
+                                // println!("U [LAST] {:?}", last);
 
-                            if sz != 0 {
-                                if i == 0 {
-                                    match bcbp_ext_uniq(chunk) {
-                                        Ok((_, o)) => {
-                                            //println!("U== {:?}", o);
+                                bcbp.pax_type    = o.1;
+                                bcbp.checkin_src = o.2;
+                                bcbp.boardingpass_src = o.3;
+                                bcbp.boardingpass_day = o.4.map(|x| u16_from_str_force(x, 10));
+                                bcbp.doc_type = o.5;
+                                bcbp.boardingpass_airline = o.6.map(|x| x.trim_end().to_owned());
 
-                                            let sz  = usize::from_str_radix(o.1, 16).map_err(|_| ParseError::CoditionalDataSize)?;
-                                            let split_pos = sz + 4;
-                                            if  split_pos > chunk.len() {
-                                                Err(ParseError::CoditionalDataSize)?
-                                            }
-
-                                            let (first, last) = chunk.split_at(split_pos);
-
-                                            bcbp.conditional_version = Some(o.0);
-                                            bcbp.conditional_data    = Some(first.into());
-                                            bcbp.pax_type = o.2;
-                                            bcbp.checkin_src = o.3;
-                                            bcbp.boardingpass_src = o.4;
-                                            bcbp.boardingpass_day = o.5.map(|x| u32_from_str_force(x, 10));
-                                            bcbp.doc_type = o.6;
-                                            bcbp.boardingpass_airline = o.7.map(|x| x.trim_right().to_owned());
-
-                                            // 0 ver: anychar >>
-                                            // 1 size: take!(2) >>
-                                            // 2 pax_type: opt!(complete!(anychar)) >>
-                                            // 3 checkin_src: opt!(complete!(anychar)) >>
-                                            // 4 boardingpass_src: opt!(complete!(anychar)) >>
-                                            // 5 boardingpass_day: opt!(complete!(take!(4))) >>
-                                            // 6 doc_type: opt!(complete!(anychar)) >>
-                                            // 7 boardingpass_airline: opt!(complete!(take!(3))) >>
-                                            // 8 tags: opt!(complete!(take!(13))) >>
-
-                                            chunk = last;
-
-                                            //println!("U>> {:?}", chunk);
-                                        },
-                                        _ => Err(ParseError::CoditionalData)?
+                                if let Some(t) = o.7.map(str::trim) {
+                                    if !t.is_empty() {
+                                        bcbp.bagtags.push(t.to_owned());
                                     }
                                 }
 
-                                match bcbp_ext_seg(chunk) {
-                                    Ok((_, o)) => {
-                                        let sz = usize::from_str_radix(o.0, 16).map_err(|_| ParseError::CoditionalDataSize)?;
-                                        let split_pos = sz + 2;
-                                        if  split_pos > chunk.len() {
-                                            Err(ParseError::CoditionalDataSize)?
-                                        }
+                                chunk = last;
 
-                                        let (_, last) = chunk.split_at(split_pos);
-
-                                        chunk = last;
-
-                                        #[cfg(test)] println!("S>> {:?}", chunk);
-
-                                    },
-                                    _ => Err(ParseError::CoditionalData)?
-                                }
-
-                            }
-                        },
-                        Err(e) => {
-                            if e.is_incomplete() {
-                                Err(ParseError::DataLength)?
-                            }
-                            println!("{:?}", e);
+                                // println!("U >> {:?}", chunk);
+                            },
+                            _ => Err(ParseError::CoditionalData)?
                         }
                     }
-                }
-            },
-            Err(e) => {
 
-                if e.is_incomplete() {
-                    Err(ParseError::DataLength)?
-                }
+                    // Repeat data
+                    match bcbp.version {
 
-                match e {
-                    nom::Err::Error(Context::Code(_, ErrorKind::Custom(1))) => {
-                        Err(ParseError::FormatCode)?
+                        _ => match bcbp_v3(chunk) {
+                            Ok((rest, o)) => {
+                                // println!("S << {:?}", chunk);
+
+
+                                // println!("S [REST] {:?}", rest);
+
+
+                                // println!("{:#?}", o);
+
+                                let sz = usize::from_str_radix(o.0, 16).map_err(|_| ParseError::CoditionalDataSize)?;
+                                let split_pos = sz + 2;
+                                if  split_pos > chunk.len() {
+                                    Err(ParseError::CoditionalDataSize)?
+                                }
+
+                                let (_first, last) = chunk.split_at(split_pos);
+
+                                bcbp.legs[i].airline_num  = o.1.map(|x| u16_from_str_force(x, 10));
+                                bcbp.legs[i].document_num = o.2.map(String::from);
+                                bcbp.legs[i].ff_airline  = o.6.map(String::from);
+                                bcbp.legs[i].ff_number   = o.7.map(String::from);
+                //                 bcbp.legs[i].var         = Some(last.to_owned());
+
+                                chunk = last;
+
+                                // println!("S >> {:?}", chunk);
+
+                            },
+                            _ => Err(ParseError::CoditionalData)?
+                        }
                     }
-                    _ => Err(ParseError::Format)?
+                },
+                Err(e) => {
+                    if e.is_incomplete() {
+                        Err(ParseError::InsufficientDataLength)?
+                    }
+                    println!("{:?}", e);
                 }
             }
         }
@@ -438,19 +433,19 @@ impl BCBP {
     }
 }
 
-fn u32_from_str_force(src: &str, radix: u32) -> u32 {
-    match u32::from_str_radix(src.trim().trim_left_matches('0'), radix) {
+fn u16_from_str_force(src: &str, radix: u32) -> u16 {
+    match u16::from_str_radix(src.trim().trim_start_matches('0'), radix) {
         Ok(v) => v,
         _     => 0,
     }
 }
 
-fn u32_from_str_opt(src: &str, radix: u32) -> Option<u32> {
-    u32::from_str_radix(src.trim().trim_left_matches('0'), radix).ok()
+fn u32_from_str_opt(src: &str, radix: u32) -> Option<u16> {
+    u16::from_str_radix(src.trim().trim_start_matches('0'), radix).ok()
 }
 
 fn seat_opt(seat: &str) -> Option<String> {
-    let tmp = seat.trim().trim_left_matches('0').to_string();
+    let tmp = seat.trim().trim_start_matches('0').to_string();
 
     if tmp.len() <= 1 {
         None
@@ -459,32 +454,6 @@ fn seat_opt(seat: &str) -> Option<String> {
     }
 }
 
-
-named!(bcbp_main<&str, (char, &str, char)>,
-    do_parse!(
-        add_return_error!(
-            ErrorKind::Custom(1),
-            char!('M')
-        ) >>
-        segments: add_return_error!(
-            ErrorKind::Custom(2),
-            anychar
-        ) >>
-        name: add_return_error!(
-            ErrorKind::Custom(3),
-            take!(20)
-        ) >>
-        ticket_flag: add_return_error!(
-            ErrorKind::Custom(4),
-            anychar
-        ) >>
-        (
-            segments,
-            name,
-            ticket_flag
-        )
-    )
-);
 
 fn bcbp_name(input: &str) -> IResult<&str, (String, Option<String>)> {
     let last_start_idx = 0;
@@ -510,9 +479,9 @@ fn bcbp_name(input: &str) -> IResult<&str, (String, Option<String>)> {
     }
 
     // extract names
-    let last = input[last_start_idx..last_end_idx].trim_right().to_string();
+    let last = input[last_start_idx..last_end_idx].trim_end().to_string();
     let first = if have_first {
-        let first = input[first_start_idx..first_end_idx].trim_right();
+        let first = input[first_start_idx..first_end_idx].trim_end();
         if !first.is_empty() {
             Some(first.to_string())
         } else {
@@ -565,7 +534,7 @@ named!(bcbp_leg<&str, (Leg, &str)>,
         ) >>
         pax_status: add_return_error!(
             ErrorKind::Custom(1010),
-            take!(1)
+            anychar
         ) >>
         size_ext: add_return_error!(
             ErrorKind::Custom(1011),
@@ -578,47 +547,42 @@ named!(bcbp_leg<&str, (Leg, &str)>,
                 dst_airport: dst.trim().into(),
                 airline: airline.trim().into(),
                 flight_code: flight_code.trim().into(),
-                flight_day: u32_from_str_force(flight_day, 10),
-                compartment: compartment,
+                flight_day: u16_from_str_force(flight_day, 10),
+                compartment,
                 seat: seat_opt(seat),
                 sequence: u32_from_str_opt(sequence, 10),
-                pax_status: pax_status.trim().into(),
+                pax_status: pax_status,
+                .. Default::default()
             },
             size_ext
         )
     )
 );
 
-named!(bcbp_ext_uniq<&str, (char, &str, Option<char>, Option<char>, Option<char>, Option<&str>, Option<char>, Option<&str>, Option<&str>)>,
+named!(bcbp_ext_v1<&str, (&str, PaxType, Option<char>, Option<char>, Option<&str>, Option<char>, Option<&str>, Option<&str>)>,
     do_parse!(
-        add_return_error!(
-            ErrorKind::Custom(2001),
-            alt!(char!('>') | char!('<'))
-        ) >>
-        ver: anychar >>
         size: take!(2) >>
         pax_type: opt!(complete!(anychar)) >>
-        checkin_src: opt!(complete!(anychar)) >>
-        boardingpass_src: opt!(complete!(anychar)) >>
-        boardingpass_day: opt!(complete!(take!(4))) >>
+        ci_src: opt!(complete!(anychar)) >>
+        bp_src: opt!(complete!(anychar)) >>
+        bp_day: opt!(complete!(take!(4))) >>
         doc_type: opt!(complete!(anychar)) >>
-        boardingpass_airline: opt!(complete!(take!(3))) >>
-        tags: opt!(complete!(take!(13))) >>
+        bp_airline: opt!(complete!(take!(3))) >>
+        bagtag: opt!(complete!(take!(13))) >>
         (
-            ver,
             size,
-            pax_type,
-            checkin_src,
-            boardingpass_src,
-            boardingpass_day,
+            pax_type.map(PaxType::from_char).unwrap_or_default(),
+            ci_src,
+            bp_src,
+            bp_day,
             doc_type,
-            boardingpass_airline,
-            tags
+            bp_airline,
+            bagtag
         )
     )
 );
 
-named!(bcbp_ext_seg<&str, (&str, Option<&str>, Option<&str>, Option<char>, Option<char>, Option<&str>, Option<&str>, Option<&str>, Option<char>, Option<&str>)>,
+named!(bcbp_v3<&str, (&str, Option<&str>, Option<&str>, Option<char>, Option<char>, Option<&str>, Option<&str>, Option<&str>, Option<char>, Option<&str>, Option<char>)>,
     do_parse!(
         size: take!(2) >>
         prefix: opt!(complete!(take!(3))) >>
@@ -630,17 +594,19 @@ named!(bcbp_ext_seg<&str, (&str, Option<&str>, Option<&str>, Option<char>, Optio
         ff_number: opt!(complete!(take!(16))) >>
         id_ad: opt!(complete!(anychar)) >>
         bag_allowance: opt!(complete!(take!(3))) >>
+        fast_track: opt!(complete!(anychar)) >>
         (
             size,
-            prefix,
-            number,
+            prefix.map(str::trim),
+            number.map(str::trim),
             indicator,
             verify,
-            airline,
-            ff_airline,
-            ff_number,
+            airline.map(str::trim),
+            ff_airline.map(str::trim),
+            ff_number.map(str::trim),
             id_ad,
-            bag_allowance
+            bag_allowance.map(str::trim),
+            fast_track
         )
     )
 );

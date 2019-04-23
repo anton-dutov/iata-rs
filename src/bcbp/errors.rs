@@ -1,12 +1,12 @@
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    DataLength,
+    MandatoryDataSize,
+    InsufficientDataLength,
+    InvalidFormatCode(char),
+    InvalidVersionBegin(char),
+    InvalidLegsCount,
 
-    FormatCode,
-
-    LegsCount,
-
-    Format,
+    InvalidFormat,
 
     Name,
 
@@ -15,6 +15,7 @@ pub enum ParseError {
     CoditionalData,
 
     CoditionalDataSize,
+    CoditionalUniqueSize,
 
     SecurityDataSize,
 
