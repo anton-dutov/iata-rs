@@ -1,10 +1,11 @@
 [package]
 name    = "iata"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2018"
 authors = [
     "Anton Dutov <anton.dutov@gmail.com>",
     "Mike Lubinets <lubinetsm@yandex.ru>",
+    "Martin Mroz <martinmroz@gmail.com>",
 ]
 
 license     = "MIT"
@@ -12,5 +13,5 @@ description = "Some implementations of IATA resolutions"
 repository  = "https://github.com/anton-dutov/iata-rs"
 
 [dependencies]
-nom    = "4.2"
+log    = "0.4"
 chrono = "0.4"
