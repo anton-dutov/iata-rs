@@ -7,15 +7,11 @@ use crate::bcbp::{
     field::Field,
     chunk::Chunk,
     error::{Error, Result},
-    raw::{RawBcbp, RawLeg, SecurityData},
+    raw::{Bcbp, Leg, SecurityData},
 };
 
 /// Parses a boarding pass from `input_data` representable as a string reference.
-pub fn from_str<I>(input_data: I) -> Result<RawBcbp>
-where
-    I: AsRef<str>,
-{
-    let input = input_data.as_ref();
+pub fn from_str<'a>(input: &'a str) -> Result<Bcbp<'a>> {
 
     if !input.is_ascii() {
         return Err(Error::InvalidCharacters);
@@ -33,31 +29,26 @@ where
     let leg_count = chunk.fetch_usize(Field::NumberOfLegsEncoded, 10)?;
 
     // Create a parser for the mandatory unique fields.
-    let mut bcbp = RawBcbp::default();
+    let mut bcbp = Bcbp::default();
 
-    bcbp.pax_name = chunk.fetch_str(Field::PassengerName)?.into();
+    bcbp.pax_name = chunk.fetch_str(Field::PassengerName)?;
     bcbp.eticket_flag =
         chunk.fetch_char(Field::ElectronicTicketIndicator)?;
 
     for leg_index in 0..leg_count {
-        let mut leg = RawLeg::default();
+        let mut leg = Leg::default();
 
         // Mandatory fields common to all legs.
-        leg.pnr = chunk
-            .fetch_str(Field::OperatingCarrierPnrCode)?
-            .into();
-        leg.src_airport = chunk.fetch_str(Field::FromCityAirportCode)?.into();
-        leg.dst_airport = chunk.fetch_str(Field::ToCityAirportCode)?.into();
-        leg.airline     = chunk
-            .fetch_str(Field::OperatingCarrierDesignator)?
-            .into();
-        leg.flight_number = chunk.fetch_str(Field::FlightNumber)?.into();
-        leg.flight_day    = chunk.fetch_str(Field::DateOfFlight)?.into();
+        leg.pnr = chunk.fetch_str(Field::OperatingCarrierPnrCode)?;
+        leg.src_airport = chunk.fetch_str(Field::FromCityAirportCode)?;
+        leg.dst_airport = chunk.fetch_str(Field::ToCityAirportCode)?;
+        leg.airline     = chunk.fetch_str(Field::OperatingCarrierDesignator)?;
+        leg.flight_number = chunk.fetch_str(Field::FlightNumber)?;
+        leg.flight_day    = chunk.fetch_str(Field::DateOfFlight)?;
         leg.compartment   = chunk.fetch_char(Field::CompartmentCode)?;
-        leg.seat          = chunk.fetch_str(Field::SeatNumber)?.into();
+        leg.seat          = chunk.fetch_str(Field::SeatNumber)?;
         leg.checkin_sequence = chunk
-            .fetch_str(Field::CheckInSequenceNumber)?
-            .into();
+            .fetch_str(Field::CheckInSequenceNumber)?;
         leg.pax_status = chunk.fetch_char(Field::PassengerStatus)?;
 
         // Field size of the variable size field that follows for the leg.
@@ -158,9 +149,8 @@ where
             // Any remaining text is ascribed to airline use.
             if conditional_item_chunk.len() > 0 {
                 let len = conditional_item_chunk.len();
-                let body = conditional_item_chunk
-                    .fetch_str_len(Field::AirlineIndividualUse, len)?;
-                leg.airline_individual_use = Some(body.into());
+                let body = conditional_item_chunk.fetch_str_len(Field::AirlineIndividualUse, len)?;
+                leg.airline_individual_use = Some(body);
             }
         }
 

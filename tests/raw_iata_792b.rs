@@ -13,7 +13,7 @@ use std::str::FromStr;
 #[test]
 fn example_1_m1_using_mandatory_elements_and_security_fields() {
     const PASS_STR: &str = "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100^164GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "DESMARAIS/LUC       ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
@@ -37,7 +37,7 @@ fn example_1_m1_using_mandatory_elements_and_security_fields() {
 #[test]
 fn example_2_m2_multiple_legs() {
     const PASS_STR: &str = "M2DESMARAIS/LUC       EABC123 YULFRAAC 0834 226F001A0025 14D>6181WW6225BAC 00141234560032A0141234567890 1AC AC 1234567890123    20KYLX58ZDEF456 FRAGVALH 3664 227C012C0002 12E2A0140987654321 1AC AC 1234567890123    2PCNWQ^164GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "DESMARAIS/LUC       ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 2);
@@ -111,7 +111,7 @@ fn example_2_m2_multiple_legs() {
 #[test]
 fn appendix_b_1_1_lh_home_printed_boarding_pass() {
     const PASS_STR: &str = "M1TEST/HIDDEN         E8OQ6FU FRARLGLH 4010 012C004D0001 35C>2180WW6012BLH              2922023642241060 LH                        *30600000K09         ";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "TEST/HIDDEN         ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
@@ -158,7 +158,7 @@ fn appendix_b_1_1_lh_home_printed_boarding_pass() {
 #[test]
 fn appendix_b_1_2_kl_home_printed_boarding_pass() {
     const PASS_STR: &str = "M1TEST/PETER          E24Z5RN AMSBRUKL 1733 019M008A0001 316>503  W0D0742497067621";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "TEST/PETER          ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
@@ -186,9 +186,9 @@ fn appendix_b_1_2_kl_home_printed_boarding_pass() {
 }
 
 #[test]
-fn appendix_b_2_1_Rawbcbp_printed_at_a_kiosk_ua_ua_kiosk() {
+fn appendix_b_2_1_bcbp_printed_at_a_kiosk_ua_ua_kiosk() {
     const PASS_STR: &str = "M1ASKREN/TEST         EA272SL ORDNRTUA 0881 007F002K0303 15C>3180 K6007BUA              2901624760758980 UA UA EY975897            *30600    09  UAG    ";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "ASKREN/TEST         ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
@@ -233,9 +233,9 @@ fn appendix_b_2_1_Rawbcbp_printed_at_a_kiosk_ua_ua_kiosk() {
 }
 
 #[test]
-fn appendix_b_3_1_mobile_Rawbcbp_lh_lufthansa_mobile_Rawbcbp() {
+fn appendix_b_3_1_mobile_bcbp_lh_lufthansa_mobile_bcbp() {
     const PASS_STR: &str = "M1TEST/HIDDEN         E8OQ6FU FRARLGLH 4010 012C004D0001 35C>2180WM6012BLH              2922023642241060 LH                        *30600000K09         ";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "TEST/HIDDEN         ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);

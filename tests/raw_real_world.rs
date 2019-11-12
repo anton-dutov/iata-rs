@@ -7,13 +7,11 @@
 
 use iata::bcbp::raw::*;
 
-use std::str::FromStr;
-
 
 #[test]
 fn alaska_boarding_pass() {
     const PASS_STR: &str = "M1MROZ/MARTIN         EXXXXXX SJCLAXAS 3317 207U001A0006 34D>218 VV8207BAS              2502771980993865 AS AS XXXXX55200000000Z29  00010";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "MROZ/MARTIN         ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
@@ -58,7 +56,7 @@ fn alaska_boarding_pass() {
 #[test]
 fn air_canada_boarding_pass() {
     const PASS_STR: &str = "M1Mroz/Martin         EXXXXXX YVRYOWAC 0344 211          072>20B0  8203IAC 250140000000000 0AC AC AC000000000     *20000AC 223                14080003068        0B          N";
-    let pass_data = RawBcbp::from_str(PASS_STR).unwrap();
+    let pass_data = Bcbp::parse(PASS_STR).unwrap();
     assert_eq!(pass_data.pax_name(), "Mroz/Martin         ");
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);

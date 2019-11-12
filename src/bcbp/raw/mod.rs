@@ -3,12 +3,9 @@
 // This software may be modified and distributed under the terms
 // of the MIT license.  See the LICENSE file for details.
 
-use std::str::FromStr;
-
 mod parser;
 
-use crate::bcbp::raw;
-use crate::bcbp::error::{Error, Result};
+use crate::bcbp::error::{Result};
 
 use parser::from_str;
 
@@ -18,31 +15,31 @@ use parser::from_str;
 // of the MIT license.  See the LICENSE file for details.
 
 #[derive(Clone,Eq,PartialEq,Hash,Debug,Default)]
-pub struct RawLeg {
-    pub(crate) pnr: String,
-    pub(crate) src_airport: String,
-    pub(crate) dst_airport: String,
-    pub(crate) airline: String,
-    pub(crate) flight_number: String,
-    pub(crate) flight_day: String,
+pub struct Leg<'a> {
+    pub(crate) pnr: &'a str,
+    pub(crate) src_airport: &'a str,
+    pub(crate) dst_airport: &'a str,
+    pub(crate) airline: &'a str,
+    pub(crate) flight_number: &'a str,
+    pub(crate) flight_day: &'a str,
     pub(crate) compartment: char,
-    pub(crate) seat: String,
-    pub(crate) checkin_sequence: String,
+    pub(crate) seat: &'a str,
+    pub(crate) checkin_sequence: &'a str,
     pub(crate) pax_status: char,
-    pub(crate) airline_numeric_code: Option<String>,
-    pub(crate) document_form_serial_number: Option<String>,
+    pub(crate) airline_numeric_code: Option<&'a str>,
+    pub(crate) document_form_serial_number: Option<&'a str>,
     pub(crate) selectee_indicator: Option<char>,
     pub(crate) international_document_verification: Option<char>,
-    pub(crate) marketing_carrier_designator: Option<String>,
-    pub(crate) frequent_flyer_airline: Option<String>,
-    pub(crate) frequent_flyer_number: Option<String>,
+    pub(crate) marketing_carrier_designator: Option<&'a str>,
+    pub(crate) frequent_flyer_airline: Option<&'a str>,
+    pub(crate) frequent_flyer_number: Option<&'a str>,
     pub(crate) id_ad_indicator: Option<char>,
-    pub(crate) free_baggage_allowance: Option<String>,
+    pub(crate) free_baggage_allowance: Option<&'a str>,
     pub(crate) fast_track: Option<char>,
-    pub(crate) airline_individual_use: Option<String>,
+    pub(crate) airline_individual_use: Option<&'a str>,
 }
 
-impl RawLeg {
+impl Leg<'_> {
 
     /// An alphanumeric string of up to 6 characters, left-aligned, space-padded.
     /// This is the Passenger Name Record used to identify the booking
@@ -223,27 +220,31 @@ impl SecurityData {
 }
 
 #[derive(Clone,Eq,PartialEq,Hash,Debug,Default)]
-pub struct RawBcbp {
-    pub(crate) pax_name: String,
+pub struct Bcbp<'a> {
+    pub(crate) pax_name: &'a str,
     pub(crate) eticket_flag: char,
     pub(crate) pax_description: Option<char>,
     pub(crate) source_of_check_in: Option<char>,
     pub(crate) source_of_boarding_pass_issuance: Option<char>,
-    pub(crate) date_of_issue_of_boarding_pass: Option<String>,
+    pub(crate) date_of_issue_of_boarding_pass: Option<&'a str>,
     pub(crate) doc_type: Option<char>,
-    pub(crate) airline_designator_of_boarding_pass_issuer: Option<String>,
-    pub(crate) baggage_tag_license_plate_numbers: Option<String>,
-    pub(crate) first_non_consecutive_baggage_tag_license_plate_numbers: Option<String>,
-    pub(crate) second_non_consecutive_baggage_tag_license_plate_numbers: Option<String>,
-    pub(crate) legs: Vec<RawLeg>,
+    pub(crate) airline_designator_of_boarding_pass_issuer: Option<&'a str>,
+    pub(crate) baggage_tag_license_plate_numbers: Option<&'a str>,
+    pub(crate) first_non_consecutive_baggage_tag_license_plate_numbers: Option<&'a str>,
+    pub(crate) second_non_consecutive_baggage_tag_license_plate_numbers: Option<&'a str>,
+    pub(crate) legs: Vec<Leg<'a>>,
     pub(crate) security_data: SecurityData,
 }
 
-impl RawBcbp {
+impl<'a> Bcbp<'a> {
+
+    pub fn from(input: &'a str) -> Result<Bcbp<'a>> {
+        from_str(input)
+    }
 
     /// All legs encoded into the boarding pass.
     /// At least one needs to be present to form a valid boarding pass.
-    pub fn legs(&self) -> &[RawLeg] {
+    pub fn legs(&self) -> &[Leg] {
         &self.legs
     }
 
@@ -340,12 +341,4 @@ impl RawBcbp {
         self.second_non_consecutive_baggage_tag_license_plate_numbers.as_ref().map(|x| &**x)
     }
 
-}
-
-
-impl FromStr for raw::RawBcbp {
-    type Err = Error;
-    fn from_str(input: &str) -> Result<Self> {
-        from_str(input)
-    }
 }

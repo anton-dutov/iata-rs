@@ -7,11 +7,9 @@
 
 use iata::bcbp::raw::*;
 
-use std::str::FromStr;
-
 #[test]
 fn v0_pass() {
     // This appears to be an old, M.0 or M.1 boarding pass which will require a different parse strategy.
     const PASS_STR: &str = "M1SOLLE/JOSUHUA       EQHSLJX ATLMEMDL 0254 006Y28C      10C3JIJI7O4M28C";
-    assert!(RawBcbp::from_str(PASS_STR).is_err());
+    assert!(Bcbp::parse(PASS_STR).is_err());
 }
