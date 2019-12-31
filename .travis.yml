@@ -1,11 +1,11 @@
 language: rust
 rust:
-  - stable
+- stable
 
 sudo: false
 
 cache: cargo
 
 script:
-  - cargo build --verbose
-  - cargo test --verbose
+- cargo build --verbose
+- cargo test --verbose

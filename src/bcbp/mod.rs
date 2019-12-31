@@ -135,6 +135,19 @@ impl Leg {
         NaiveDate::from_yo(year, u32::from(day))
     }
 
+
+    pub fn flight_date_adapt_year(&self) -> NaiveDate {
+        let now  = Utc::today();
+        let mut year = now.year();
+
+        if now.ordinal() > 360 {
+            year += 1;
+        }
+
+
+        self.flight_date(year)
+    }
+
     pub fn flight_date_current_year(&self) -> NaiveDate {
         let now = Utc::today();
 
