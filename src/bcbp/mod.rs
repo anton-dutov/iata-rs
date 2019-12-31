@@ -140,7 +140,7 @@ impl Leg {
         let now  = Utc::today();
         let mut year = now.year();
 
-        if now.ordinal() > 360 {
+        if self.flight_day < 5 && now.ordinal() > 360 {
             year += 1;
         }
 
