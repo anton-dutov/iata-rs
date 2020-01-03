@@ -28,7 +28,6 @@ fn errors() {
 
 }
 
-
 // Minimal
 #[test]
 fn minimal() {

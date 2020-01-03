@@ -1,7 +1,13 @@
 use std::str;
 use std::u32;
 
-pub use chrono::prelude::*;
+pub use chrono::{
+    Offset,
+    TimeZone,
+    NaiveDate,
+};
+
+use chrono::{DateTime, Datelike, Utc};
 
 
 
@@ -141,9 +147,8 @@ impl Leg {
         self.flight_day = date.ordinal() as u16;
     }
 
-    #[cfg(feature = "with-tz")]
-    pub fn flight_date_adapt(&self, tz: TimeZone) -> NaiveDate {
-        let now = DateTime::from_utc(Utc::now().naive_utc(), tz);
+    pub fn flight_date_adapt<Tz: TimeZone>(&self, tz: Tz) -> NaiveDate {
+        let now = tz.from_utc_datetime(&Utc::now().naive_utc());
 
         let mut year = now.year();
 
