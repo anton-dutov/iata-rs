@@ -3,6 +3,8 @@ use std::u32;
 
 pub use chrono::prelude::*;
 
+
+
 pub mod error;
 pub mod field;
 pub mod raw;
@@ -135,34 +137,28 @@ impl Leg {
         NaiveDate::from_yo(year, u32::from(day))
     }
 
+    pub fn set_flight_date(&mut self, date: NaiveDate) {
+        self.flight_day = date.ordinal() as u16;
+    }
 
-    pub fn flight_date_adapt_year(&self) -> NaiveDate {
-        let now  = Utc::today();
+    #[cfg(feature = "with-tz")]
+    pub fn flight_date_adapt(&self, tz: TimeZone) -> NaiveDate {
+        let now = DateTime::from_utc(Utc::now().naive_utc(), tz);
+
         let mut year = now.year();
 
-        if self.flight_day < 5 && now.ordinal() > 360 {
+        if self.flight_day < 7 && now.ordinal() > 360 {
             year += 1;
         }
-
 
         self.flight_date(year)
     }
 
-    pub fn flight_date_current_year(&self) -> NaiveDate {
-        let now = Utc::today();
-
-        self.flight_date(now.year())
-    }
-
-    pub fn flight_day_aligned(&self) -> String {
+    fn flight_day_aligned(&self) -> String {
         if self.flight_day == 0 {
             return String::new()
         }
         format!("{:0>3}", self.flight_day)
-    }
-
-    pub fn flight_date_set(&mut self, date: NaiveDate) {
-        self.flight_day = date.ordinal() as u16;
     }
 }
 

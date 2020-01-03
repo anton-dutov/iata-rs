@@ -54,7 +54,6 @@ fn minimal() {
     assert!(bcbp.legs[0].flight_number == "");
     assert!(bcbp.legs[0].flight_day    == 0);
     assert!(bcbp.legs[0].flight_date(2019) == NaiveDate::from_ymd(2019, 1, 1));
-    // assert!(bcbp.legs[0].flight_day_aligned()   == "012");
     assert!(bcbp.legs[0].compartment    == None);
     assert!(bcbp.legs[0].seat           == None);
     assert!(bcbp.legs[0].sequence     == None);
@@ -96,7 +95,6 @@ fn home_printed_1_1() {
     assert!(bcbp.legs[0].flight_number  == "4010");
     assert!(bcbp.legs[0].flight_day     == 12);
     assert!(bcbp.legs[0].flight_date(2019)    == NaiveDate::from_ymd(2019, 1, 12));
-    assert!(bcbp.legs[0].flight_day_aligned() == "012");
     assert!(bcbp.legs[0].compartment          == Some('C'));
     assert!(bcbp.legs[0].seat                 == Some("4D".to_string()));
     assert!(bcbp.legs[0].sequence             == Some(1));
@@ -167,7 +165,6 @@ fn mandatory1() {
     assert!(bcbp.legs[0].flight_number  == "1234A");
     assert!(bcbp.legs[0].flight_day     == 1);
     assert!(bcbp.legs[0].flight_date(2017)    == NaiveDate::from_ymd(2017, 1, 1));
-    assert!(bcbp.legs[0].flight_day_aligned() == "001");
     assert!(bcbp.legs[0].compartment          == Some('Y'));
     assert!(bcbp.legs[0].seat                 == Some("1Z".to_string()));
     assert!(bcbp.legs[0].sequence             == Some(7));
