@@ -6,7 +6,7 @@
 //! Synthetic test cases with invalid boarding pass data.
 
 use iata::bcbp::{
-    error::*,
+    Error,
     field::Field,
     raw::*
 };

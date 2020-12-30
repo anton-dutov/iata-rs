@@ -1,3 +1,14 @@
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
+pub enum DateError {
+    #[error("INVALID_DAY_OF_YEAR_RANGE: {0:?}")]
+    InvalidDayOfYearRange(u32),
+
+    #[error("INVALID_ADAPT_RANGE: {0:?}")]
+    InvalidAdaptRange(u32),
+
+    #[error("OVERFLOW_NOT_LEAP_YEAR: {0:?}")]
+    OverflowNotLeapYear(u32),
+}
 
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum ParseError {

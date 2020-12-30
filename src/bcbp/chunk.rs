@@ -3,7 +3,7 @@ use log::*;
 use super::{
 //     raw,
 //     field,
-    error::{Error, Result}
+    error::{Error, BcbpResult}
 };
 
 use super::field::Field;
@@ -38,7 +38,7 @@ impl<'a> Chunk<'a> {
     ///
     /// # Panics
     /// Will panic if `len` is `0`.
-    pub fn fetch_chunk(&mut self, len: usize) -> Result<Chunk<'a>> {
+    pub fn fetch_chunk(&mut self, len: usize) -> BcbpResult<Chunk<'a>> {
         assert!(
             len > 0,
             "Attempting to scan a zero-length sub-field list is not valid."
@@ -59,7 +59,7 @@ impl<'a> Chunk<'a> {
     /// # Panics
     /// Will panic if `len` is `0`.
     /// Will panic if the fixed-length field intrinsic length is not equal to `len`.
-    pub fn fetch_str_len(&mut self, field: Field, len: usize) -> Result<&'a str> {
+    pub fn fetch_str_len(&mut self, field: Field, len: usize) -> BcbpResult<&'a str> {
         assert!(len > 0, "Attempting to scan zero bytes of data.");
         assert!(
             field.len() == 0 || field.len() == len,
@@ -85,7 +85,7 @@ impl<'a> Chunk<'a> {
     ///
     /// # Panics
     /// Will panic if `field` is variable-length.
-    pub fn fetch_str(&mut self, field: Field) -> Result<&'a str> {
+    pub fn fetch_str(&mut self, field: Field) -> BcbpResult<&'a str> {
         assert!(
             field.len() != 0,
             "Attempting to scan a variable-length field as fixed-length."
@@ -99,7 +99,7 @@ impl<'a> Chunk<'a> {
     ///
     /// # Panics
     /// Will panic if `field` is variable-length.
-    pub fn fetch_str_opt(&mut self, field: Field) -> Result<Option<&'a str>> {
+    pub fn fetch_str_opt(&mut self, field: Field) -> BcbpResult<Option<&'a str>> {
         assert!(
             field.len() != 0,
             "Attempting to scan a variable-length field as fixed-length."
@@ -115,7 +115,7 @@ impl<'a> Chunk<'a> {
     ///
     /// # Panics
     /// Will panic if `field` is a length other than 1.
-    pub fn fetch_char(&mut self, field: Field) -> Result<char> {
+    pub fn fetch_char(&mut self, field: Field) -> BcbpResult<char> {
         assert!(
             field.len() == 1,
             "Attempting to scan a single character out of a longer field."
@@ -129,7 +129,7 @@ impl<'a> Chunk<'a> {
     ///
     /// # Panics
     /// Will panic if `field` is a length other than 1.
-    pub fn fetch_char_opt(&mut self, field: Field) -> Result<Option<char>> {
+    pub fn fetch_char_opt(&mut self, field: Field) -> BcbpResult<Option<char>> {
         assert!(
             field.len() == 1,
             "Attempting to scan a single character out of a longer field."
@@ -149,7 +149,7 @@ impl<'a> Chunk<'a> {
     ///
     /// # Issues
     /// Should not advance the input until the numeric value is sucessfully scanned.
-    pub fn fetch_usize(&mut self, field: Field, radix: u32) -> Result<usize> {
+    pub fn fetch_usize(&mut self, field: Field, radix: u32) -> BcbpResult<usize> {
         self.fetch_str(field).and_then(|str_value| {
             usize::from_str_radix(str_value, radix).map_err(|_| Error::ExpectedInteger(field))
         })

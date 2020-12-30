@@ -1,58 +1,90 @@
 use std::str::FromStr;
 
-pub mod error;
+mod error;
 
-use error::ParseError;
+pub use error::{DateError, ParseError};
 
 use chrono::{
+    Date,
+    DateTime,
     NaiveDate,
     NaiveTime,
     NaiveDateTime,
     TimeZone,
 };
 
-pub trait Date: std::fmt::Debug {
-    fn day(&self) -> u32;
-    fn month(&self) -> Month;
-}
+const MAX_ADAPT_DAYS: u32 = 31;
 
 // pub struct DayOfMonth(u32);
+#[derive(Debug, Clone, PartialEq)]
 pub struct DayOfYear(u32);
 // pub struct DayOfYearCheck(u32, u8);
 
 
+ //
+
+pub fn is_leap_year(year: i32) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
 impl DayOfYear {
 
-    pub fn new(day: u32) -> Self {
+    pub fn new(day: u32) -> Result<Self, DateError> {
 
-        assert!(day >= 366);
+        if day == 0 || day > 366 {
+            return Err(DateError::InvalidDayOfYearRange(day))
+        }
 
-        Self(day)
+        Ok(Self(day))
+    }
+
+    pub fn ordinal(&self) -> u32 {
+        self.0
     }
 
     pub fn to_naive_date(&self, year: i32) -> NaiveDate {
-
-        let day = if self.0 > 0 && self.0 < 366 { self.0 } else { 1 };
-
-        NaiveDate::from_yo(year, day)
+        NaiveDate::from_yo(year, self.0)
     }
 
-    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> NaiveDate {
+    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, DateError> {
 
-        assert!(days >= 31);
-
-        use chrono::{Utc, Datelike};
+        use chrono::{Utc};
 
         let now = tz.from_utc_datetime(&Utc::now().naive_utc());
 
-        let mut year = now.year();
+        self.to_naive_date_adapt(&now.date(), days)
+    }
 
-        if self.0 < days && now.ordinal() > (365 - days) {
-            year += 1;
+    pub fn to_naive_date_adapt<Tz: TimeZone>(&self, for_date: &Date<Tz>, days: u32) -> Result<NaiveDate, DateError> {
+
+        use chrono::Datelike;
+
+        if days == 0 || days > MAX_ADAPT_DAYS {
+            return Err(DateError::InvalidAdaptRange(days))
         }
 
-        self.to_naive_date(year)
+        let mut year = for_date.year();
+
+        println!("{:?} {}", self.0, days);
+
+        if self.0 < days && for_date.ordinal() > (365 - days) {
+            // Next year
+            year += 1;
+        } else if self.0 > days {
+            // Previous year
+            year -= 1;
+        }
+
+        if self.0 == 366 && !is_leap_year(year) {
+            return Err(DateError::OverflowNotLeapYear(self.0))
+        }
+
+        Ok(self.to_naive_date(year))
     }
+}
+
+impl Default for DayOfYear {
+    fn default() -> Self { Self(1) }
 }
 
 
@@ -83,7 +115,7 @@ impl FromStr for TzTag {
         Ok(match s {
             "l" | "L" => TzTag::Local,
             "z" | "Z" => TzTag::Utc,
-            other => return Err(ParseError::InvalidTimezoneTag(other.to_owned()))
+            other => return Err(ParseError::InvalidTimezoneTag(other.into()))
         })
     }
 }
@@ -147,7 +179,7 @@ impl FromStr for Month {
             "OCT" => October,
             "NOV" => November,
             "DEC" => December,
-            other => return Err(ParseError::InvalidMonth(other.to_owned()))
+            other => return Err(ParseError::InvalidMonth(other.into()))
         })
     }
 }
@@ -189,11 +221,19 @@ impl ShortDate {
         }
     }
 
-    pub fn to_naive_date(&self, year: i32) -> NaiveDate {
+    pub fn day(&self) -> u32 {
+        self.day
+    }
+
+    pub fn month(&self) -> Month {
+        self.month
+    }
+
+    pub fn to_naive_date(&self, year: i32) -> Result<NaiveDate, DateError> {
 
         use Month::*;
 
-        NaiveDate::from_ymd(
+        Ok(NaiveDate::from_ymd(
             year,
             match self.month {
                 January   => 1,
@@ -209,10 +249,10 @@ impl ShortDate {
                 November  => 11,
                 December  => 12,
             },
-            self.day)
+            self.day))
     }
 
-    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> NaiveDate {
+    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, DateError> {
 
         assert!(days <= 31);
 
@@ -225,6 +265,31 @@ impl ShortDate {
 
         if self.month == December && self.day > (31 - days) && now.ordinal() > (365 - days) {
             year += 1;
+        }
+
+        self.to_naive_date(year)
+    }
+
+
+    pub fn to_naive_date_adapt<Tz: TimeZone>(&self, for_date: &Date<Tz>, days: u32) -> Result<NaiveDate, DateError> {
+
+        use chrono::Datelike;
+        use Month::*;
+
+        if days == 0 || days > MAX_ADAPT_DAYS {
+            return Err(DateError::InvalidAdaptRange(days))
+        }
+
+        let mut year = for_date.year();
+
+        if self.month == December && self.day > (31 - days) {
+            year += 1;
+        } else if self.month == December && self.day > days {
+            year -= 1;
+        }
+
+        if self.month == February && self.day == 29 && !is_leap_year(year) {
+            return Err(DateError::OverflowNotLeapYear(self.day))
         }
 
         self.to_naive_date(year)
@@ -254,17 +319,6 @@ impl FromStr for ShortDate {
             day.parse()
                .map_err(|_| ParseError::InvalidInput(day.to_owned()))?
         ))
-    }
-}
-
-impl Date for ShortDate {
-
-    fn day(&self) -> u32 {
-        self.day
-    }
-
-    fn month(&self) -> Month {
-        self.month
     }
 }
 
@@ -472,27 +526,23 @@ impl ShortDateTime {
         self.time.timezone
     }
 
-    pub fn to_naive_datetime(&self, year: i32) -> NaiveDateTime {
-
-        NaiveDateTime::new(self.date.to_naive_date(year), self.time.to_naive_time())
+    pub fn to_naive_datetime(&self, year: i32) -> Result<NaiveDateTime, DateError> {
+        self.date
+            .to_naive_date(year)
+            .map(|date| NaiveDateTime::new(date, self.time.to_naive_time()))
     }
 
-    pub fn to_naive_datetime_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> NaiveDateTime {
+    pub fn to_naive_datetime_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDateTime, DateError> {
+        self.date
+            .to_naive_date_adapt_year(tz, days)
+            .map(|date| NaiveDateTime::new(date, self.time.to_naive_time()))
 
-        assert!(days <= 31);
+    }
 
-        use Month::*;
-        use chrono::{Utc, Datelike};
-
-        let now = tz.from_utc_datetime(&Utc::now().naive_utc());
-
-        let mut year = now.year();
-
-        if self.date.month == December && self.date.day > (31 - days) && now.ordinal() > (365 - days) {
-            year += 1;
-        }
-
-        self.to_naive_datetime(year)
+    pub fn to_naive_datetime_adapt<Tz: TimeZone>(&self, for_date: &DateTime<Tz>, days: u32) -> Result<NaiveDateTime, DateError> {
+        self.date
+            .to_naive_date_adapt(&for_date.date(), days)
+            .map(|date| NaiveDateTime::new(date, self.time.to_naive_time()))
     }
 }
 

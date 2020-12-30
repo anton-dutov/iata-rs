@@ -27,4 +27,4 @@ pub enum FixError {
     InsufficientDataLength,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type BcbpResult<T> = std::result::Result<T, Error>;

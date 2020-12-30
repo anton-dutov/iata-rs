@@ -5,7 +5,7 @@
 
 mod parser;
 
-use crate::bcbp::error::{Result};
+use crate::bcbp::error::BcbpResult;
 
 use parser::from_str;
 
@@ -238,7 +238,7 @@ pub struct Bcbp<'a> {
 
 impl<'a> Bcbp<'a> {
 
-    pub fn from(input: &'a str) -> Result<Bcbp<'a>> {
+    pub fn from(input: &'a str) -> BcbpResult<Bcbp<'a>> {
         from_str(input)
     }
 

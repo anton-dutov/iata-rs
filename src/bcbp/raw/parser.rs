@@ -6,12 +6,12 @@
 use crate::bcbp::{
     field::Field,
     chunk::Chunk,
-    error::{Error, Result},
+    error::{Error, BcbpResult},
     raw::{Bcbp, Leg, SecurityData},
 };
 
 /// Parses a boarding pass from `input_data` representable as a string reference.
-pub fn from_str<'a>(input: &'a str) -> Result<Bcbp<'a>> {
+pub fn from_str<'a>(input: &'_ str) -> BcbpResult<Bcbp<'_>> {
 
     if !input.is_ascii() {
         return Err(Error::InvalidCharacters);

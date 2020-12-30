@@ -7,11 +7,11 @@ pub use chrono::{
     NaiveDate,
 };
 
-use chrono::{Datelike, Utc};
+use chrono::{Datelike};
 
 
 
-pub mod error;
+mod error;
 pub mod field;
 pub mod raw;
 pub(crate) mod chunk;
@@ -22,8 +22,10 @@ use field::Field;
 pub use crate::bcbp::error::{
     Error,
     FixError,
-    Result,
+    BcbpResult,
 };
+
+use crate::datetime::{DayOfYear, DateError};
 
 
 #[derive(Debug, PartialEq)]
@@ -110,12 +112,12 @@ impl Default for PaxType {
 
 #[derive(Debug, Default, Clone)]
 pub struct Leg {
-    pub pnr: String,
-    pub src_airport: String,
-    pub dst_airport: String,
-    pub airline: String,
-    pub flight_number: String,
-    pub flight_day: u16,
+    pub pnr: Option<String>,
+    pub src_airport: Option<String>,
+    pub dst_airport: Option<String>,
+    pub airline: Option<String>,
+    pub flight_number: Option<String>,
+    pub flight_day:    Option<DayOfYear>,
     pub compartment: Option<char>,
     pub seat: Option<String>,
     pub airline_num: Option<u16>,
@@ -136,35 +138,22 @@ pub struct Leg {
 
 impl Leg {
 
-    pub fn flight_date(&self, year: i32) -> NaiveDate {
-
-        let day = if self.flight_day > 0 && self.flight_day <= 366 { self.flight_day } else { 1 };
-
-        NaiveDate::from_yo(year, u32::from(day))
+    pub fn flight_day(&self) -> Option<&DayOfYear> {
+        self.flight_day.as_ref()
     }
 
-    pub fn set_flight_date(&mut self, date: NaiveDate) {
-        self.flight_day = date.ordinal() as u16;
-    }
+    pub fn set_flight_date(&mut self, date: NaiveDate) -> std::result::Result<(), DateError> {
+        self.flight_day = Some(DayOfYear::new(date.ordinal())?);
 
-    pub fn flight_date_adapt<Tz: TimeZone>(&self, tz: Tz) -> NaiveDate {
-
-        let now = tz.from_utc_datetime(&Utc::now().naive_utc());
-
-        let mut year = now.year();
-
-        if self.flight_day < 7 && now.ordinal() > 360 {
-            year += 1;
-        }
-
-        self.flight_date(year)
+        Ok(())
     }
 
     fn flight_day_aligned(&self) -> String {
-        if self.flight_day == 0 {
-            return String::new()
+        if let Some(ref day) = self.flight_day {
+            format!("{:0>3}", day.ordinal())
+        } else {
+            String::new()
         }
-        format!("{:0>3}", self.flight_day)
     }
 }
 
@@ -214,10 +203,10 @@ impl BCBP {
         &mut self.legs
     }
 
-    pub fn build(&self, _mode: Mode) -> Result<String> {
+    pub fn build(&self, _mode: Mode) -> BcbpResult<String> {
 
 
-        let mut ret = format!("M{}{:<20}{}", self.legs_count(), self.name(), self.ticket_flag.unwrap_or_else(|| ' '));
+        let mut ret = format!("M{}{:<20}{}", self.legs_count(), self.name(), self.ticket_flag.unwrap_or(' '));
 
         for leg in &self.legs {
 
@@ -236,13 +225,13 @@ impl BCBP {
 
             ret = format!("{}{:<7}{:<3}{:<3}{:<3}{:<5}{:3}{:1}{:>4}{:<5}{:1}00",
                 ret,
-                leg.pnr,
-                leg.src_airport,
-                leg.dst_airport,
-                leg.airline,
-                leg.flight_number,
+                leg.pnr.as_deref().unwrap_or(""),
+                leg.src_airport.as_deref().unwrap_or(""),
+                leg.dst_airport.as_deref().unwrap_or(""),
+                leg.airline.as_deref().unwrap_or(""),
+                leg.flight_number.as_deref().unwrap_or(""),
                 leg.flight_day_aligned(),
-                leg.compartment.unwrap_or_else(|| ' '),
+                leg.compartment.unwrap_or(' '),
                 seat,
                 seq,
                 leg.pax_status.to_char());
@@ -250,7 +239,7 @@ impl BCBP {
         Ok(ret)
     }
 
-    pub fn from(src: &str) -> Result<BCBP> {
+    pub fn from(src: &str) -> BcbpResult<BCBP> {
 
 
         // let src = src_data.as_ref();
@@ -276,7 +265,7 @@ impl BCBP {
         // The number of legs informs the breakdown of the various field iterators.
         let legs = chunk.fetch_usize(Field::NumberOfLegsEncoded, 10)?;
 
-        if legs < 1 || legs > 9 {
+        if !(1..=9).contains(&legs) {
             return Err(Error::InvalidLegsCount)
         }
 
@@ -298,17 +287,48 @@ impl BCBP {
             let mut leg = Leg::default();
 
             // Mandatory fields common to all legs.
-            leg.pnr = chunk
-                .fetch_str(Field::OperatingCarrierPnrCode)?
-                .trim()
-                .into();
-            leg.src_airport   = chunk.fetch_str(Field::FromCityAirportCode)?.trim().into();
-            leg.dst_airport   = chunk.fetch_str(Field::ToCityAirportCode)?.trim().into();
-            leg.airline       = chunk
-                .fetch_str(Field::OperatingCarrierDesignator)?
-                .trim().into();
-            leg.flight_number = chunk.fetch_str(Field::FlightNumber)?.trim().into();
-            leg.flight_day    = u16_from_str_force(chunk.fetch_str(Field::DateOfFlight)?, 10);
+            let pnr = chunk.fetch_str(Field::OperatingCarrierPnrCode)?.trim();
+            leg.pnr = if !pnr.is_empty() {
+                Some(pnr.into())
+            } else {
+                None
+            };
+
+            let src_airport = chunk.fetch_str(Field::FromCityAirportCode)?.trim();
+            leg.src_airport = if !src_airport.is_empty() {
+                Some(src_airport.into())
+            } else {
+                None
+            };
+
+            let dst_airport = chunk.fetch_str(Field::ToCityAirportCode)?.trim();
+            leg.dst_airport = if !dst_airport.is_empty() {
+                Some(dst_airport.into())
+            } else {
+                None
+            };
+
+            let airline = chunk.fetch_str(Field::OperatingCarrierDesignator)?.trim();
+            leg.airline = if !airline.is_empty() {
+                Some(airline.into())
+            } else {
+                None
+            };
+
+            let flight_number = chunk.fetch_str(Field::FlightNumber)?.trim();
+            leg.flight_number = if !flight_number.is_empty() {
+                Some(flight_number.into())
+            } else {
+                None
+            };
+
+            let flight_day = chunk.fetch_str(Field::DateOfFlight)?;
+            leg.flight_day = if !flight_day.trim().is_empty() {
+                Some(DayOfYear::new(u16_from_str_force(flight_day, 10) as u32).unwrap())
+            } else {
+                None
+            };
+
             leg.compartment   = match chunk.fetch_char(Field::CompartmentCode)? {
                 ' ' => None,
                 c   => Some(c),
