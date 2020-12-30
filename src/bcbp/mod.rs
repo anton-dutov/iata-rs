@@ -138,7 +138,7 @@ impl Leg {
 
     pub fn flight_date(&self, year: i32) -> NaiveDate {
 
-        let day = if self.flight_day > 0 && self.flight_day < 366 { self.flight_day } else { 1 };
+        let day = if self.flight_day > 0 && self.flight_day <= 366 { self.flight_day } else { 1 };
 
         NaiveDate::from_yo(year, u32::from(day))
     }
@@ -148,6 +148,7 @@ impl Leg {
     }
 
     pub fn flight_date_adapt<Tz: TimeZone>(&self, tz: Tz) -> NaiveDate {
+
         let now = tz.from_utc_datetime(&Utc::now().naive_utc());
 
         let mut year = now.year();

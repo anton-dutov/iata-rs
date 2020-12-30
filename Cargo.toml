@@ -1,6 +1,6 @@
 [package]
 name    = "iata"
-version = "0.7.1"
+version = "0.8.0-alpha.1"
 edition = "2018"
 authors = [
     "Anton Dutov <anton.dutov@gmail.com>",
@@ -15,5 +15,6 @@ categories  = ["parser-implementations"]
 keywords    = ["iata", "bcbp"]
 
 [dependencies]
-log    = "0.4"
-chrono = "0.4"
+log       = "0.4"
+thiserror = "1.0"
+chrono    = "0.4"
