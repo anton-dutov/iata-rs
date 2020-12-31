@@ -25,7 +25,7 @@ pub use crate::bcbp::error::{
     BcbpResult,
 };
 
-use crate::datetime::{DayOfYear, DateError};
+use crate::datetime::{DayOfYear, Error as DateError};
 
 
 #[derive(Debug, PartialEq)]

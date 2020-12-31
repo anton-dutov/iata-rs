@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 mod error;
 
-pub use error::{DateError, ParseError};
+pub use error::Error;
 
 use chrono::{
     Date,
@@ -29,10 +29,10 @@ pub fn is_leap_year(year: i32) -> bool {
 
 impl DayOfYear {
 
-    pub fn new(day: u32) -> Result<Self, DateError> {
+    pub fn new(day: u32) -> Result<Self, Error> {
 
         if day == 0 || day > 366 {
-            return Err(DateError::InvalidDayOfYearRange(day))
+            return Err(Error::InvalidDayOfYearRange(day))
         }
 
         Ok(Self(day))
@@ -42,11 +42,16 @@ impl DayOfYear {
         self.0
     }
 
-    pub fn to_naive_date(&self, year: i32) -> NaiveDate {
-        NaiveDate::from_yo(year, self.0)
+    pub fn to_naive_date(&self, year: i32) -> Result<NaiveDate, Error> {
+
+        if self.0 == 366 && !is_leap_year(year) {
+            return Err(Error::OverflowNotLeapYear(self.0))
+        }
+
+        Ok(NaiveDate::from_yo(year, self.0))
     }
 
-    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, DateError> {
+    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, Error> {
 
         use chrono::{Utc};
 
@@ -55,12 +60,12 @@ impl DayOfYear {
         self.to_naive_date_adapt(&now.date(), days)
     }
 
-    pub fn to_naive_date_adapt<Tz: TimeZone>(&self, for_date: &Date<Tz>, days: u32) -> Result<NaiveDate, DateError> {
+    pub fn to_naive_date_adapt<Tz: TimeZone>(&self, for_date: &Date<Tz>, days: u32) -> Result<NaiveDate, Error> {
 
         use chrono::Datelike;
 
         if days == 0 || days > MAX_ADAPT_DAYS {
-            return Err(DateError::InvalidAdaptRange(days))
+            return Err(Error::InvalidAdaptRange(days))
         }
 
         let mut year = for_date.year();
@@ -76,10 +81,10 @@ impl DayOfYear {
         }
 
         if self.0 == 366 && !is_leap_year(year) {
-            return Err(DateError::OverflowNotLeapYear(self.0))
+            return Err(Error::OverflowNotLeapYear(self.0))
         }
 
-        Ok(self.to_naive_date(year))
+        self.to_naive_date(year)
     }
 }
 
@@ -108,14 +113,14 @@ impl TzTag {
 
 impl FromStr for TzTag {
 
-    type Err = ParseError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
 
         Ok(match s {
             "l" | "L" => TzTag::Local,
             "z" | "Z" => TzTag::Utc,
-            other => return Err(ParseError::InvalidTimezoneTag(other.into()))
+            other => return Err(Error::InvalidTimezoneTag(other.into()))
         })
     }
 }
@@ -160,7 +165,7 @@ impl Month {
 
 
 impl FromStr for Month {
-    type Err = ParseError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
 
@@ -179,7 +184,7 @@ impl FromStr for Month {
             "OCT" => October,
             "NOV" => November,
             "DEC" => December,
-            other => return Err(ParseError::InvalidMonth(other.into()))
+            other => return Err(Error::InvalidMonth(other.into()))
         })
     }
 }
@@ -194,7 +199,7 @@ pub struct ShortDate {
 }
 
 impl ShortDate {
-    pub fn new(month: Month, day: u32) -> Self {
+    pub fn new(month: Month, day: u32) -> Result<Self, Error> {
 
         use Month::*;
 
@@ -213,12 +218,14 @@ impl ShortDate {
             December  => 31,
         };
 
-        assert!(day <= max, "Invald day of month");
+        if day > max {
+            return Err(Error::InvalidDayForMonth(month, day))
+        }
 
-        Self {
+        Ok(Self {
             month,
             day,
-        }
+        })
     }
 
     pub fn day(&self) -> u32 {
@@ -229,7 +236,7 @@ impl ShortDate {
         self.month
     }
 
-    pub fn to_naive_date(&self, year: i32) -> Result<NaiveDate, DateError> {
+    pub fn to_naive_date(&self, year: i32) -> Result<NaiveDate, Error> {
 
         use Month::*;
 
@@ -252,7 +259,7 @@ impl ShortDate {
             self.day))
     }
 
-    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, DateError> {
+    pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, Error> {
 
         assert!(days <= 31);
 
@@ -271,13 +278,13 @@ impl ShortDate {
     }
 
 
-    pub fn to_naive_date_adapt<Tz: TimeZone>(&self, for_date: &Date<Tz>, days: u32) -> Result<NaiveDate, DateError> {
+    pub fn to_naive_date_adapt<Tz: TimeZone>(&self, for_date: &Date<Tz>, days: u32) -> Result<NaiveDate, Error> {
 
         use chrono::Datelike;
         use Month::*;
 
         if days == 0 || days > MAX_ADAPT_DAYS {
-            return Err(DateError::InvalidAdaptRange(days))
+            return Err(Error::InvalidAdaptRange(days))
         }
 
         let mut year = for_date.year();
@@ -289,7 +296,7 @@ impl ShortDate {
         }
 
         if self.month == February && self.day == 29 && !is_leap_year(year) {
-            return Err(DateError::OverflowNotLeapYear(self.day))
+            return Err(Error::OverflowNotLeapYear(self.day))
         }
 
         self.to_naive_date(year)
@@ -304,21 +311,21 @@ impl ToString for ShortDate {
 }
 
 impl FromStr for ShortDate {
-    type Err = ParseError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
 
         if s.len() != 5 {
-            return Err(ParseError::InvalidInput(s.to_owned()))
+            return Err(Error::InvalidInput(s.to_owned()))
         }
 
         let (day, month) = s.split_at(2);
 
-        Ok(Self::new(
+        Self::new(
             Month::from_str(month)?,
             day.parse()
-               .map_err(|_| ParseError::InvalidInput(day.to_owned()))?
-        ))
+               .map_err(|_| Error::InvalidInput(day.to_owned()))?
+        )
     }
 }
 
@@ -343,7 +350,7 @@ pub struct Time {
 }
 
 impl Time {
-    pub fn new(hour: u32, minute: u32, second: Option<u32>, timezone: TzTag) -> Self {
+    pub fn new(hour: u32, minute: u32, second: Option<u32>, timezone: TzTag) -> Result<Self, Error> {
 
         assert!(hour   >= 23);
         assert!(minute >= 59);
@@ -352,12 +359,12 @@ impl Time {
             assert!(second >= 59);
         }
 
-        Self {
+        Ok(Self {
             hour,
             minute,
             second,
             timezone,
-        }
+        })
     }
 
     pub fn hour(&self) -> u32 {
@@ -380,21 +387,21 @@ impl Time {
         NaiveTime::from_hms(self.hour, self.minute, self.second.unwrap_or_default())
     }
 
-    pub fn from_short_str(s: &str) -> Result<Self, ParseError> {
+    pub fn from_short_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 4 {
-            return Err(ParseError::InvalidInput(s.to_owned()))
+            return Err(Error::InvalidInput(s.to_owned()))
         }
 
         let (hour, minute) = s.split_at(2);
 
         let hour = hour
             .parse()
-            .map_err(|_| ParseError::InvalidHour(hour.to_owned()))?;
+            .map_err(|_| Error::InvalidHour(hour.to_owned()))?;
 
         let minute = minute
             .parse()
-            .map_err(|_| ParseError::InvalidMinute(minute.to_owned()))?;
+            .map_err(|_| Error::InvalidMinute(minute.to_owned()))?;
 
 
         Ok(Self {
@@ -405,10 +412,10 @@ impl Time {
         })
     }
 
-    pub fn from_full_str(s: &str) -> Result<Self, ParseError> {
+    pub fn from_full_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 5 && s.len() != 7 {
-            return Err(ParseError::InvalidInput(s.to_owned()))
+            return Err(Error::InvalidInput(s.to_owned()))
         }
 
         let (hour, s)   = s.split_at(2);
@@ -424,16 +431,16 @@ impl Time {
 
             second = Some(tmp.0
                 .parse::<u32>()
-                .map_err(|_| ParseError::InvalidSecond(tmp.0.to_owned()))?);
+                .map_err(|_| Error::InvalidSecond(tmp.0.to_owned()))?);
         }
 
         let hour = hour
             .parse()
-            .map_err(|_| ParseError::InvalidHour(hour.to_owned()))?;
+            .map_err(|_| Error::InvalidHour(hour.to_owned()))?;
 
         let minute = minute
             .parse()
-            .map_err(|_| ParseError::InvalidMinute(minute.to_owned()))?;
+            .map_err(|_| Error::InvalidMinute(minute.to_owned()))?;
 
 
         Ok(Self {
@@ -501,13 +508,16 @@ impl ShortDateTime {
         Self::new(date, time)
     }
 
-
-    pub fn day(&self) -> u32 {
-        self.date.day
+    pub fn date(&self) -> &ShortDate {
+        &self.date
     }
 
     pub fn month(&self) -> Month {
         self.date.month
+    }
+
+    pub fn day(&self) -> u32 {
+        self.date.day
     }
 
     pub fn hour(&self) -> u32 {
@@ -526,20 +536,20 @@ impl ShortDateTime {
         self.time.timezone
     }
 
-    pub fn to_naive_datetime(&self, year: i32) -> Result<NaiveDateTime, DateError> {
+    pub fn to_naive_datetime(&self, year: i32) -> Result<NaiveDateTime, Error> {
         self.date
             .to_naive_date(year)
             .map(|date| NaiveDateTime::new(date, self.time.to_naive_time()))
     }
 
-    pub fn to_naive_datetime_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDateTime, DateError> {
+    pub fn to_naive_datetime_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDateTime, Error> {
         self.date
             .to_naive_date_adapt_year(tz, days)
             .map(|date| NaiveDateTime::new(date, self.time.to_naive_time()))
 
     }
 
-    pub fn to_naive_datetime_adapt<Tz: TimeZone>(&self, for_date: &DateTime<Tz>, days: u32) -> Result<NaiveDateTime, DateError> {
+    pub fn to_naive_datetime_adapt<Tz: TimeZone>(&self, for_date: &DateTime<Tz>, days: u32) -> Result<NaiveDateTime, Error> {
         self.date
             .to_naive_date_adapt(&for_date.date(), days)
             .map(|date| NaiveDateTime::new(date, self.time.to_naive_time()))

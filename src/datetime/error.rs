@@ -1,5 +1,7 @@
+use super::Month;
+
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
-pub enum DateError {
+pub enum Error {
     #[error("INVALID_DAY_OF_YEAR_RANGE: {0:?}")]
     InvalidDayOfYearRange(u32),
 
@@ -8,10 +10,10 @@ pub enum DateError {
 
     #[error("OVERFLOW_NOT_LEAP_YEAR: {0:?}")]
     OverflowNotLeapYear(u32),
-}
 
-#[derive(Clone, Debug, PartialEq, thiserror::Error)]
-pub enum ParseError {
+    #[error("INVALID_DAY_FOR_MONTH: {:?} {0:?}")]
+    InvalidDayForMonth(Month, u32),
+
     #[error("INVALID_FORMAT: {0:?}")]
     InvalidInput(String),
 
