@@ -68,7 +68,7 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn marketing_carrier_designator(&self) -> Option<&str> {
-        self.marketing_carrier_designator.as_ref().map(|x| &**x)
+        self.marketing_carrier_designator.as_deref()
     }
 
     /// Airline code associated with the frequent flyer number.
@@ -77,7 +77,7 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn frequent_flyer_airline(&self) -> Option<&str> {
-        self.frequent_flyer_airline.as_ref().map(|x| &**x)
+        self.frequent_flyer_airline.as_deref()
     }
 
     /// 2 character or 3 letter airline designator followed by up to 13 numerics or
@@ -85,7 +85,7 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn frequent_flyer_number(&self) -> Option<&str> {
-        self.frequent_flyer_number.as_ref().map(|x| &**x)
+        self.frequent_flyer_number.as_deref()
     }
 
     /// Values are defined in Resolution 792.
@@ -152,14 +152,14 @@ impl Leg<'_> {
     /// This is also the first three digits of the eTicket number.
     /// Spaces indicate the field is not set.
     pub fn airline_numeric_code(&self) -> Option<&str> {
-        self.airline_numeric_code.as_ref().map(|x| &**x)
+        self.airline_numeric_code.as_deref()
     }
 
     /// The ten-digit DSN.
     /// This is also the last ten digits of the eTicket number.
     /// Spaces indicate the field is not set.
     pub fn document_form_serial_number(&self) -> Option<&str> {
-        self.document_form_serial_number.as_ref().map(|x| &**x)
+        self.document_form_serial_number.as_deref()
     }
 
     /// This field is used by certain agencies to demarcate individuals requiring extra screening.
@@ -188,13 +188,13 @@ impl Leg<'_> {
     /// indicating how much baggage passengers are able to take with them free of charge.
     /// Spaces indicate the field is not set.
     pub fn free_baggage_allowance(&self) -> Option<&str> {
-        self.free_baggage_allowance.as_ref().map(|x| &**x)
+        self.free_baggage_allowance.as_deref()
     }
 
     /// Optional unstructured data for airline individual use.
     /// Content frequently includes frequent flyer tier, passenger preferences, etc.
     pub fn airline_individual_use(&self) -> Option<&str> {
-        self.airline_individual_use.as_ref().map(|x| &**x)
+        self.airline_individual_use.as_deref()
     }
 
 }
@@ -214,7 +214,7 @@ impl SecurityData {
 
     /// Security data used to verify the boarding pass was not tampered with.
     pub fn security_data(&self) -> Option<&str> {
-        self.security_data.as_ref().map(|x| &**x)
+        self.security_data.as_deref()
     }
 
 }
@@ -299,7 +299,7 @@ impl<'a> Bcbp<'a> {
     ///   "6366" represaents December 31, 2016 (a leap year).
     /// Spaces indicate the field is not set.
     pub fn date_of_issue_of_boarding_pass(&self) -> Option<&str> {
-        self.date_of_issue_of_boarding_pass.as_ref().map(|x| &**x)
+        self.date_of_issue_of_boarding_pass.as_deref()
     }
 
     /// The type of the document, 'B' indicating a boarding pass.
@@ -313,7 +313,7 @@ impl<'a> Bcbp<'a> {
     /// are permitted and the string is left-justified and space padded.
     /// Spaces indicate the field is not set.
     pub fn airline_designator_of_boarding_pass_issuer(&self) -> Option<&str> {
-        self.airline_designator_of_boarding_pass_issuer.as_ref().map(|x| &**x)
+        self.airline_designator_of_boarding_pass_issuer.as_deref()
     }
 
     /// This field allows carriers to populate baggage tag numbers and the number
@@ -324,21 +324,20 @@ impl<'a> Bcbp<'a> {
     ///   11...13: number of consecutive bags (up to 999).
     /// Spaces indicate the field is not set.
     pub fn baggage_tag_license_plate_numbers(&self) -> Option<&str> {
-        self.baggage_tag_license_plate_numbers.as_ref().map(|x| &**x)
+        self.baggage_tag_license_plate_numbers.as_deref()
     }
 
     /// This field allows carriers who handle non-sequential bags to include a second set of them
     /// in the boarding pass data in in the same format as `baggage_tag_license_plate_numbers`.
     /// Spaces indicate the field is not set.
     pub fn first_non_consecutive_baggage_tag_license_plate_numbers(&self) -> Option<&str> {
-        self.first_non_consecutive_baggage_tag_license_plate_numbers.as_ref().map(|x| &**x)
+        self.first_non_consecutive_baggage_tag_license_plate_numbers.as_deref()
     }
 
     /// This field allows carriers who handle non-sequential bags to include a third set of them
     /// in the boarding pass data in in the same format as `baggage_tag_license_plate_numbers`.
     /// Spaces indicate the field is not set.
     pub fn second_non_consecutive_baggage_tag_license_plate_numbers(&self) -> Option<&str> {
-        self.second_non_consecutive_baggage_tag_license_plate_numbers.as_ref().map(|x| &**x)
+        self.second_non_consecutive_baggage_tag_license_plate_numbers.as_deref()
     }
-
 }

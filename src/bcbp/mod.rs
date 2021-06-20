@@ -147,18 +147,10 @@ impl Leg {
 
         Ok(())
     }
-
-    fn flight_day_aligned(&self) -> String {
-        if let Some(ref day) = self.flight_day {
-            format!("{:0>3}", day.ordinal())
-        } else {
-            String::new()
-        }
-    }
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct BCBP {
+pub struct Bcbp {
     pub version: Option<char>,
     pub pax_type: PaxType,
     pub doc_type: Option<char>,
@@ -175,7 +167,7 @@ pub struct BCBP {
     pub security_data: Option<String>,
 }
 
-impl BCBP {
+impl Bcbp {
     pub fn name(&self) -> String {
         let mut tmp = if let Some(ref name_first) = self.name_first {
             format!("{}/{}", self.name_last, name_first)
@@ -230,7 +222,11 @@ impl BCBP {
                 leg.dst_airport.as_deref().unwrap_or(""),
                 leg.airline.as_deref().unwrap_or(""),
                 leg.flight_number.as_deref().unwrap_or(""),
-                leg.flight_day_aligned(),
+                if let Some(ref day) = leg.flight_day {
+                    format!("{:0>3}", day.ordinal())
+                } else {
+                    String::from("   ")
+                },
                 leg.compartment.unwrap_or(' '),
                 seat,
                 seq,
@@ -239,7 +235,7 @@ impl BCBP {
         Ok(ret)
     }
 
-    pub fn from(src: &str) -> BcbpResult<BCBP> {
+    pub fn from(src: &str) -> BcbpResult<Bcbp> {
 
 
         // let src = src_data.as_ref();
@@ -269,7 +265,7 @@ impl BCBP {
             return Err(Error::InvalidLegsCount)
         }
 
-        let mut bcbp = BCBP::default();
+        let mut bcbp = Bcbp::default();
 
 
         let name = chunk.fetch_str(Field::PassengerName)?;

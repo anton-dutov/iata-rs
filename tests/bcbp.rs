@@ -4,27 +4,27 @@ use iata::datetime::DayOfYear;
 #[test]
 fn errors() {
 
-    if let Err(e) = BCBP::from("") {
+    if let Err(e) = Bcbp::from("") {
         assert!(e == Error::MandatoryDataSize);
     }
 
-    if let Err(e) = BCBP::from("X1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
+    if let Err(e) = Bcbp::from("X1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
         assert!(e == Error::InvalidFormatCode('X'));
     }
 
-    if let Err(e) = BCBP::from("M0BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
+    if let Err(e) = Bcbp::from("M0BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
         assert!(e == Error::InvalidLegsCount);
     }
 
-    if let Err(e) = BCBP::from("MABRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
+    if let Err(e) = Bcbp::from("MABRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
         assert!(e == Error::ExpectedInteger(field::Field::NumberOfLegsEncoded));
     }
 
-    if let Err(e) = BCBP::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF") {
+    if let Err(e) = Bcbp::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF") {
         assert!(e == Error::CoditionalDataSize);
     }
 
-        // println!("{:?}", BCBP::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100"));
+        // println!("{:?}", Bcbp::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100"));
         // assert!(false);
 
 }
@@ -33,7 +33,7 @@ fn errors() {
 #[test]
 fn minimal() {
     let src = "M1TEST                 8OQ6FU                             00";
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
 
     println!("RES {:#?}", tmp);
 
@@ -67,7 +67,7 @@ fn minimal() {
 #[test]
 fn home_printed_1_1() {
     let src = "M1TEST/HIDDEN         E8OQ6FU FRARLGLH 4010 012C004D0001 35C>2180WW6012BLH              2922023642241060 LH                        *30600000K09         ";
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
 
     println!("RES {:#?}", tmp);
 
@@ -104,7 +104,7 @@ fn home_printed_1_1() {
 #[test]
 fn home_printed_1_2() {
     let src = "M1TEST/PETER          E24Z5RN AMSBRUKL 1733 019M008A0001 316>503  W0D0742497067621";
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
 
     println!("RES {:?}", tmp);
 
@@ -141,7 +141,7 @@ fn home_printed_1_2() {
 #[test]
 fn mandatory1() {
     let src = "M1JOHN/SMITH JORDAN   EABCDEF JFKSVOSU 1234A001Y001Z0007 000";
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
 
     println!("RES {:?}", tmp);
 
@@ -175,7 +175,7 @@ fn mandatory1() {
 #[test]
 fn mandatory4() {
     let src = "M4VERYLONGESTLASTNAMEDEABCDEF JFKSVOSU 1234 207          000ABCDEF SVOLEDSU 5678 210          000ABCDEF LEDSVOSU 9876 215          000ABCDEF SVOJFKSU 1357 215          000";
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
 
     assert!(tmp.is_ok());
 
@@ -225,7 +225,7 @@ fn mandatory4() {
 fn conditional3() {
     let src = "M3JOHN/SMITH          EABCDEF JFKSVOSK 1234 123M014C0050 35D>5180O 0276BSK              2A55559467513980 SK                         *30600000K09         ABCDEF SVOFRASU 5678 135Y013A0012 3372A55559467513990 SU SU 12345678             09         ABCDEF FRAJFKSU 9876 231Y022F0052 3372A55559467513990 SU SU 12345678             09         ";
     println!("|");
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
     println!("TMP {:#?}", tmp);
 
     assert!(tmp.is_ok());
@@ -262,7 +262,7 @@ fn conditional3() {
 #[test]
 fn surname_with_space() {
     let src = "M1IVANOVA VASILINA/   EABCDEF SVOLEDSU 0036 315YNS  0049 362>5324OO7314BSU                                        2A5551993799397 1                          N";
-    let tmp = BCBP::from(src);
+    let tmp = Bcbp::from(src);
 
     assert!(tmp.is_ok());
 
