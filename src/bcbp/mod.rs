@@ -1,7 +1,7 @@
 use std::str;
 use std::u32;
 
-pub use chrono::prelude::*;
+pub use time::Date;
 
 pub mod error;
 pub mod field;
@@ -128,17 +128,12 @@ pub struct Leg {
 
 impl Leg {
 
-    pub fn flight_date(&self, year: i32) -> NaiveDate {
+    pub fn flight_date(&self, year: i32) -> Result<Date> {
 
         let day = if self.flight_day > 0 && self.flight_day < 366 { self.flight_day } else { 1 };
 
-        NaiveDate::from_yo(year, u32::from(day))
-    }
-
-    pub fn flight_date_current_year(&self) -> NaiveDate {
-        let now = Utc::today();
-
-        self.flight_date(now.year())
+        Date::from_ordinal_date(year, day)
+            .map_err(Error::Time)
     }
 
     pub fn flight_day_aligned(&self) -> String {
@@ -148,7 +143,7 @@ impl Leg {
         format!("{:0>3}", self.flight_day)
     }
 
-    pub fn flight_date_set(&mut self, date: NaiveDate) {
+    pub fn flight_date_set(&mut self, date: Date) {
         self.flight_day = date.ordinal() as u16;
     }
 }

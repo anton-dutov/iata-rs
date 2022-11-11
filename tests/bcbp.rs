@@ -1,4 +1,5 @@
 use iata::bcbp::*;
+use time::Month;
 
 #[test]
 fn errors() {
@@ -53,7 +54,7 @@ fn minimal() {
     assert!(bcbp.legs[0].operating_airline.is_empty());
     assert!(bcbp.legs[0].flight_number.is_empty());
     assert!(bcbp.legs[0].flight_day    == 0);
-    assert!(bcbp.legs[0].flight_date(2019) == NaiveDate::from_ymd(2019, 1, 1));
+    assert!(bcbp.legs[0].flight_date(2019).unwrap() == Date::from_calendar_date(2019, Month::January, 1).unwrap());
     // assert!(bcbp.legs[0].flight_day_aligned()   == "012");
     assert!(bcbp.legs[0].compartment.is_none());
     assert!(bcbp.legs[0].seat.is_none());
@@ -95,7 +96,7 @@ fn home_printed_1_1() {
     assert!(bcbp.legs[0].operating_airline      == "LH");
     assert!(bcbp.legs[0].flight_number  == "4010");
     assert!(bcbp.legs[0].flight_day     == 12);
-    assert!(bcbp.legs[0].flight_date(2019)    == NaiveDate::from_ymd(2019, 1, 12));
+    assert!(bcbp.legs[0].flight_date(2019).unwrap()    == Date::from_calendar_date(2019, Month::January, 12).unwrap());
     assert!(bcbp.legs[0].flight_day_aligned() == "012");
     assert!(bcbp.legs[0].compartment          == Some('C'));
     assert!(bcbp.legs[0].seat                 == Some("4D".to_string()));
@@ -166,7 +167,7 @@ fn mandatory1() {
     assert!(bcbp.legs[0].operating_airline      == "SU");
     assert!(bcbp.legs[0].flight_number  == "1234A");
     assert!(bcbp.legs[0].flight_day     == 1);
-    assert!(bcbp.legs[0].flight_date(2017)    == NaiveDate::from_ymd(2017, 1, 1));
+    assert!(bcbp.legs[0].flight_date(2017).unwrap()    == Date::from_calendar_date(2017, Month::January, 1).unwrap());
     assert!(bcbp.legs[0].flight_day_aligned() == "001");
     assert!(bcbp.legs[0].compartment          == Some('Y'));
     assert!(bcbp.legs[0].seat                 == Some("1Z".to_string()));
@@ -191,7 +192,7 @@ fn mandatory4() {
 
     assert!(bcbp.name()       == "VERYLONGESTLASTNAMED");
     assert!(bcbp.name_last  == "VERYLONGESTLASTNAMED");
-    assert!(bcbp.name_first == None);
+    assert!(bcbp.name_first.is_none());
     assert!(bcbp.ticket_flag  == Some('E'));
     assert!(bcbp.legs[0].pnr  == "ABCDEF");
     assert!(bcbp.legs[0].src_airport  == "JFK");

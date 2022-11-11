@@ -20,6 +20,7 @@ pub enum Error {
     InvalidCharacters,
     /// After parsing, additional characters remain.
     TrailingData,
+    Time(time::error::ComponentRange)
 }
 
 #[derive(Debug, PartialEq, Eq)]
