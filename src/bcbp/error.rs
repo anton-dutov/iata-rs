@@ -1,6 +1,6 @@
 use super::field::Field;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     MandatoryDataSize,
     InsufficientDataLength,
@@ -22,7 +22,7 @@ pub enum Error {
     TrailingData,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FixError {
     InsufficientDataLength,
 }

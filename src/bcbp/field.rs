@@ -12,59 +12,59 @@ pub enum Field {
     /// Item 4: Airline Individual Use. n bytes. Data Type unspecified.
     AirlineIndividualUse,
     /// Item 5: Number of Legs Encoded. 1 byte. Data Type 'N'.
-    NumberOfLegsEncoded,
+    LegsCount,
     /// Item 6: Field Size of Variable Size Field. 2 byte. Data Type 'f'. Hexadecimal.
-    FieldSizeOfVariableSizeField,
+    VariableBlockSize,
     /// Item 7: Operating Carrier PNR Code. 7 bytes. Data Type 'f'.
-    OperatingCarrierPnrCode,
+    OperatingAirlinePnr,
     /// Item 8: Beginning of Version Number. 1 byte. Data Type 'f'.
-    BeginningOfVersionNumber,
+    VersionBegin,
     /// Item 9: Version Number. 1 byte. Data Type 'f'.
-    VersionNumber,
+    Version,
     /// Item 10: Field Size of Structured Message. 2 byte. Data Type 'f'. Hexadecimal.
-    FieldSizeOfStructuredMessageUnique,
+    UniqueBlockSize,
     /// Item 11: Passenger Name. 20 bytes. Data Type 'f'.
-    PassengerName,
+    PaxName,
     /// Item 12: Source of Check-In. 1 byte. Data Type 'f'.
-    SourceOfCheckIn,
+    CheckInSrc,
     /// Item 14: Source of Boarding Pass Issuance. 1 byte. Data Type 'f'.
-    SourceOfBoardingPassIssuance,
+    BoardingPassIssueSrc,
     /// Item 15: Passenger Description. 1 byte. Data Type 'f'.
-    PassengerDescription,
+    PaxDescription,
     /// Item 16: Document Type. 1 byte. Data Type 'f'.
     DocumentType,
     /// Item 17: Field Size of Structured Message. 2 byte. Data Type 'f'. Hexadecimal.
-    FieldSizeOfStructuredMessageRepeated,
+    RepeatedBlockSize,
     /// Item 18: Selectee Indicator. 1 byte. Data Type 'f'.
     SelecteeIndicator,
     /// Item 19: Marketing Carrier Designator. 3 bytes. Data Type 'f'.
-    MarketingCarrierDesignator,
+    MarketingAirline,
     /// Item 20: Frequent Flyer Airline Designator. 3 bytes. Data Type 'f'.
-    FrequentFlyerAirlineDesignator,
+    FrequentFlyerAirline,
     /// Item 21: Airline Designator of Boarding Pass Issuer. 3 bytes. Data Type 'f'.
-    AirlineDesignatorOfBoardingPassIssuer,
+    BoardingPassIssueAirline,
     /// Item 22: Date of Issue of Boarding Pass. 4 bytes. Data Type 'N'.
-    DateOfIssueOfBoardingPass,
+    BoardingPassIssueDate,
     /// Item 23: Baggage Tag License Plate Number(s). 13 bytes. Data Type 'f'.
-    BaggageTagLicensePlateNumbers,
+    BagTags,
     /// Item 25: Beginning of Security Data. 1 byte. Data Type 'f'.
-    BeginningOfSecurityData,
+    SecurityDataBegin,
     /// Item 26: From City Airport Code. 3 bytes. Data Type 'a'.
     FromCityAirportCode,
     /// Item 28: Type of Security Data. 1 byte. Data Type 'f'.
-    TypeOfSecurityData,
+    SecurityDataKind,
     /// Item 29: Length of Security Data. 2 bytes. Data Type 'f'. Hexadecimal.
-    LengthOfSecurityData,
+    SecurityDataLen,
     /// Item 30: Security Data. n bytes. Data Type 'f'.
     SecurityData,
     /// Item 31: First Non-Consecutive Baggage Tag License Plate Number. 13 bytes. Data Type 'f'.
-    FirstNonConsecutiveBaggageTagLicensePlateNumbers,
+    BagTagsNc1,
     /// Item 32: Second Non-Consecutive Baggage Tag License Plate Number. 13 bytes. Data Type 'f'.
-    SecondNonConsecutiveBaggageTagLicensePlateNumbers,
+    BagTagsNc2,
     /// Item 38: To City Airport Code. 3 bytes. Data Type 'a'.
     ToCityAirportCode,
     /// Item 42: Operating Carrier Designator. 3 bytes. Data Type 'f'.
-    OperatingCarrierDesignator,
+    OperatingAirline,
     /// Item 43: Flight Number. 5 bytes. Data Type 'NNNN\[a\]'.
     FlightNumber,
     /// Item 46: Date of Flight. 3 bytes. Data Type 'N'.
@@ -76,11 +76,11 @@ pub enum Field {
     /// Item 104: Seat Number. 4 bytes. Data Type is usually 'NNNa', but can be 'INF ' or similar.
     SeatNumber,
     /// Item 107: Check-In Sequence Number. 5 bytes. Data Type is usually 'NNNN\[f\]', but can be 'f'.
-    CheckInSequenceNumber,
+    CheckInSequence,
     /// Item 108: International Document Verification. 1 byte. Data Type 'f'.
     InternationalDocumentVerification,
     /// Item 117: Passenger Status. 1 byte. Data Type 'f'.
-    PassengerStatus,
+    PaxStatus,
     /// Item 118: Free Baggage Allowance. 3 bytes. Data Type 'f'.
     FreeBaggageAllowance,
     /// Item 142: Airline Numeric Code. 3 bytes. Data Type 'N'.
@@ -90,7 +90,7 @@ pub enum Field {
     /// Item 236: Frequent Flyer Number. 16 bytes. Data Type 'f'.
     FrequentFlyerNumber,
     /// Item 253: Electronic Ticket Indicator. 1 byte. Data Type 'f'.
-    ElectronicTicketIndicator,
+    ETicketIndicator,
     /// Item 254: Fast Track. 1 byte. Data Type 'f'.
     FastTrack,
 }
@@ -102,46 +102,46 @@ impl Field {
         match self {
             Field::FormatCode => 1,
             Field::AirlineIndividualUse => 0,
-            Field::NumberOfLegsEncoded => 1,
-            Field::FieldSizeOfVariableSizeField => 2,
-            Field::OperatingCarrierPnrCode => 7,
-            Field::BeginningOfVersionNumber => 1,
-            Field::VersionNumber => 1,
-            Field::FieldSizeOfStructuredMessageUnique => 2,
-            Field::PassengerName => 20,
-            Field::SourceOfCheckIn => 1,
-            Field::SourceOfBoardingPassIssuance => 1,
-            Field::PassengerDescription => 1,
+            Field::LegsCount => 1,
+            Field::VariableBlockSize => 2,
+            Field::OperatingAirlinePnr => 7,
+            Field::VersionBegin => 1,
+            Field::Version => 1,
+            Field::UniqueBlockSize => 2,
+            Field::PaxName => 20,
+            Field::CheckInSrc => 1,
+            Field::BoardingPassIssueSrc => 1,
+            Field::PaxDescription => 1,
             Field::DocumentType => 1,
-            Field::FieldSizeOfStructuredMessageRepeated => 2,
+            Field::RepeatedBlockSize => 2,
             Field::SelecteeIndicator => 1,
-            Field::MarketingCarrierDesignator => 3,
-            Field::FrequentFlyerAirlineDesignator => 3,
-            Field::AirlineDesignatorOfBoardingPassIssuer => 3,
-            Field::DateOfIssueOfBoardingPass => 4,
-            Field::BaggageTagLicensePlateNumbers => 13,
-            Field::BeginningOfSecurityData => 1,
+            Field::MarketingAirline => 3,
+            Field::FrequentFlyerAirline => 3,
+            Field::BoardingPassIssueAirline => 3,
+            Field::BoardingPassIssueDate => 4,
+            Field::BagTags => 13,
+            Field::SecurityDataBegin => 1,
             Field::FromCityAirportCode => 3,
-            Field::TypeOfSecurityData => 1,
-            Field::LengthOfSecurityData => 2,
+            Field::SecurityDataKind => 1,
+            Field::SecurityDataLen => 2,
             Field::SecurityData => 0,
-            Field::FirstNonConsecutiveBaggageTagLicensePlateNumbers => 13,
-            Field::SecondNonConsecutiveBaggageTagLicensePlateNumbers => 13,
+            Field::BagTagsNc1 => 13,
+            Field::BagTagsNc2 => 13,
             Field::ToCityAirportCode => 3,
-            Field::OperatingCarrierDesignator => 3,
+            Field::OperatingAirline => 3,
             Field::FlightNumber => 5,
             Field::DateOfFlight => 3,
             Field::CompartmentCode => 1,
             Field::IdAdIndicator => 1,
             Field::SeatNumber => 4,
-            Field::CheckInSequenceNumber => 5,
+            Field::CheckInSequence => 5,
             Field::InternationalDocumentVerification => 1,
-            Field::PassengerStatus => 1,
+            Field::PaxStatus => 1,
             Field::FreeBaggageAllowance => 3,
             Field::AirlineNumericCode => 3,
             Field::DocumentFormSerialNumber => 10,
             Field::FrequentFlyerNumber => 16,
-            Field::ElectronicTicketIndicator => 1,
+            Field::ETicketIndicator => 1,
             Field::FastTrack => 1,
         }
     }
@@ -149,91 +149,91 @@ impl Field {
     /// Name of the field as defined in the Implementation Guide.
     pub fn name(self) -> &'static str {
         match self {
-            Field::FormatCode => 
+            Self::FormatCode =>
                 "Format Code",
-            Field::AirlineIndividualUse => 
+            Self::AirlineIndividualUse =>
                 "Airline Individual Use",
-            Field::NumberOfLegsEncoded => 
+            Self::LegsCount =>
                 "Number of Legs Encoded",
-            Field::FieldSizeOfVariableSizeField => 
+            Self::VariableBlockSize =>
                 "Field Size of Variable Size Field",
-            Field::OperatingCarrierPnrCode => 
+            Self::OperatingAirlinePnr =>
                 "Operating Carrier PNR Code",
-            Field::BeginningOfVersionNumber => 
+            Self::VersionBegin =>
                 "Beginning of Version Number",
-            Field::VersionNumber => 
+            Self::Version =>
                 "Version Number",
-            Field::FieldSizeOfStructuredMessageUnique => 
+            Self::UniqueBlockSize =>
                 "Field Size of Strutured Message (Unique)",
-            Field::PassengerName => 
+            Self::PaxName =>
                 "Passenger Name",
-            Field::SourceOfCheckIn => 
+            Self::CheckInSrc =>
                 "Source of Check-In",
-            Field::SourceOfBoardingPassIssuance => 
+            Self::BoardingPassIssueSrc =>
                 "Source of Boarding Pass Issuance",
-            Field::PassengerDescription => 
+            Self::PaxDescription =>
                 "Passenger Description",
-            Field::DocumentType => 
+            Self::DocumentType =>
                 "Document Type",
-            Field::FieldSizeOfStructuredMessageRepeated => 
+            Self::RepeatedBlockSize =>
                 "Field Size of Strutured Message (Repeated)",
-            Field::SelecteeIndicator => 
+            Self::SelecteeIndicator =>
                 "Selectee Indicator",
-            Field::MarketingCarrierDesignator => 
+            Self::MarketingAirline =>
                 "Marketing Carrier Designator",
-            Field::FrequentFlyerAirlineDesignator => 
+            Self::FrequentFlyerAirline =>
                 "Frequent Flyer Airline Designator",
-            Field::AirlineDesignatorOfBoardingPassIssuer => 
+            Self::BoardingPassIssueAirline =>
                 "Airline Designator of Boarding Pass Issuer",
-            Field::DateOfIssueOfBoardingPass => 
+            Self::BoardingPassIssueDate =>
                 "Date of Issue of Boarding Pass",
-            Field::BaggageTagLicensePlateNumbers => 
+            Self::BagTags =>
                 "Baggage Tag License Plate Number(s)",
-            Field::BeginningOfSecurityData => 
+            Self::SecurityDataBegin =>
                 "Beginning of Security Data",
-            Field::FromCityAirportCode => 
+            Self::FromCityAirportCode =>
                 "From City Airport Code",
-            Field::TypeOfSecurityData => 
+            Self::SecurityDataKind =>
                 "Type of Security Data",
-            Field::LengthOfSecurityData => 
+            Self::SecurityDataLen =>
                 "Length of Security Data",
-            Field::SecurityData => 
+            Self::SecurityData =>
                 "Security Data",
-            Field::FirstNonConsecutiveBaggageTagLicensePlateNumbers =>
+            Self::BagTagsNc1 =>
                 "First Non-Consecutive Baggage Tag License Plate Number",
-            Field::SecondNonConsecutiveBaggageTagLicensePlateNumbers =>
+            Self::BagTagsNc2 =>
                 "Second Non-Consecutive Baggage Tag License Plate Number",
-            Field::ToCityAirportCode => 
+            Self::ToCityAirportCode =>
                 "To City Airport Code",
-            Field::OperatingCarrierDesignator => 
+            Self::OperatingAirline =>
                 "Operating Carrier Designator",
-            Field::FlightNumber => 
+            Self::FlightNumber =>
                 "Flight Number",
-            Field::DateOfFlight => 
+            Self::DateOfFlight =>
                 "Date of Flight",
-            Field::CompartmentCode => 
+            Self::CompartmentCode =>
                 "Compartment Code",
-            Field::IdAdIndicator => 
+            Self::IdAdIndicator =>
                 "ID/AD Indicator",
-            Field::SeatNumber => 
+            Self::SeatNumber =>
                 "Seat Number",
-            Field::CheckInSequenceNumber => 
+            Self::CheckInSequence =>
                 "Check-In Sequence Number",
-            Field::InternationalDocumentVerification => 
+            Self::InternationalDocumentVerification =>
                 "International Document Verification",
-            Field::PassengerStatus => 
+            Self::PaxStatus =>
                 "Passenger Status",
-            Field::FreeBaggageAllowance => 
+            Self::FreeBaggageAllowance =>
                 "Free Baggage Allowance",
-            Field::AirlineNumericCode => 
+            Self::AirlineNumericCode =>
                 "Airline Numeric Code",
-            Field::DocumentFormSerialNumber => 
+            Self::DocumentFormSerialNumber =>
                 "Document Form / Serial Number",
-            Field::FrequentFlyerNumber => 
+            Self::FrequentFlyerNumber =>
                 "Frequent Flyer Number",
-            Field::ElectronicTicketIndicator => 
+            Self::ETicketIndicator =>
                 "Electronic Ticket Indicator",
-            Field::FastTrack => 
+            Self::FastTrack =>
                 "Fast Track",
         }
     }

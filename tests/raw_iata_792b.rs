@@ -20,7 +20,7 @@ fn example_1_m1_using_mandatory_elements_and_security_fields() {
     assert_eq!(first_leg.pnr(), "ABC123 ");
     assert_eq!(first_leg.src_airport(), "YUL");
     assert_eq!(first_leg.dst_airport(), "FRA");
-    assert_eq!(first_leg.airline(), "AC ");
+    assert_eq!(first_leg.operating_airline(), "AC ");
     assert_eq!(first_leg.flight_number(), "0834 ");
     assert_eq!(first_leg.flight_day(), "326");
     assert_eq!(first_leg.compartment(), 'J');
@@ -28,8 +28,8 @@ fn example_1_m1_using_mandatory_elements_and_security_fields() {
     assert_eq!(first_leg.checkin_sequence(), "0025 ");
     assert_eq!(first_leg.pax_status(), '1');
 
-    assert_eq!(pass_data.security_data().type_of_security_data(), Some('1'));
-    assert_eq!(pass_data.security_data().security_data(), Some("GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE"));
+    assert_eq!(pass_data.security_data().kind(), Some('1'));
+    assert_eq!(pass_data.security_data().data(), Some("GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE"));
 }
 
 #[test]
@@ -41,21 +41,21 @@ fn example_2_m2_multiple_legs() {
     assert_eq!(pass_data.legs().len(), 2);
 
     assert_eq!(pass_data.pax_description(), Some('1'));
-    assert_eq!(pass_data.source_of_check_in(), Some('W'));
-    assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('W'));
-    assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6225"));
+    assert_eq!(pass_data.checkin_src(), Some('W'));
+    assert_eq!(pass_data.boardingpass_issue_src(), Some('W'));
+    assert_eq!(pass_data.boardingpass_issue_date(), Some("6225"));
     assert_eq!(pass_data.doc_type(), Some('B'));
-    assert_eq!(pass_data.airline_designator_of_boarding_pass_issuer(), Some("AC "));
-    assert_eq!(pass_data.baggage_tag_license_plate_numbers(), Some("0014123456003"));
-    assert_eq!(pass_data.first_non_consecutive_baggage_tag_license_plate_numbers(), None);
-    assert_eq!(pass_data.second_non_consecutive_baggage_tag_license_plate_numbers(), None);
+    assert_eq!(pass_data.boardingpass_issue_airline(), Some("AC "));
+    assert_eq!(pass_data.bagtags(), Some("0014123456003"));
+    assert_eq!(pass_data.bagtags_nc1(), None);
+    assert_eq!(pass_data.bagtags_nc2(), None);
 
     { // Fields in leg 1 of 2.
         let first_leg = &pass_data.legs()[0];
         assert_eq!(first_leg.pnr(), "ABC123 ");
         assert_eq!(first_leg.src_airport(), "YUL");
         assert_eq!(first_leg.dst_airport(), "FRA");
-        assert_eq!(first_leg.airline(), "AC ");
+        assert_eq!(first_leg.operating_airline(), "AC ");
         assert_eq!(first_leg.flight_number(), "0834 ");
         assert_eq!(first_leg.flight_day(), "226");
         assert_eq!(first_leg.compartment(), 'F');
@@ -64,10 +64,10 @@ fn example_2_m2_multiple_legs() {
         assert_eq!(first_leg.pax_status(), '1');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("014"));
-        assert_eq!(first_leg.document_form_serial_number(), Some("1234567890"));
+        assert_eq!(first_leg.doc_number(), Some("1234567890"));
         assert_eq!(first_leg.selectee_indicator(), Some(' '));
         assert_eq!(first_leg.international_document_verification(), Some('1'));
-        assert_eq!(first_leg.marketing_carrier_designator(), Some("AC "));
+        assert_eq!(first_leg.marketing_airline(), Some("AC "));
         assert_eq!(first_leg.frequent_flyer_airline(), Some("AC "));
         assert_eq!(first_leg.frequent_flyer_number(), Some("1234567890123   "));
         assert_eq!(first_leg.id_ad_indicator(), Some(' '));
@@ -81,7 +81,7 @@ fn example_2_m2_multiple_legs() {
         assert_eq!(second_leg.pnr(), "DEF456 ");
         assert_eq!(second_leg.src_airport(), "FRA");
         assert_eq!(second_leg.dst_airport(), "GVA");
-        assert_eq!(second_leg.airline(), "LH ");
+        assert_eq!(second_leg.operating_airline(), "LH ");
         assert_eq!(second_leg.flight_number(), "3664 ");
         assert_eq!(second_leg.flight_day(), "227");
         assert_eq!(second_leg.compartment(), 'C');
@@ -90,10 +90,10 @@ fn example_2_m2_multiple_legs() {
         assert_eq!(second_leg.pax_status(), '1');
 
         assert_eq!(second_leg.airline_numeric_code(), Some("014"));
-        assert_eq!(second_leg.document_form_serial_number(), Some("0987654321"));
+        assert_eq!(second_leg.doc_number(), Some("0987654321"));
         assert_eq!(second_leg.selectee_indicator(), Some(' '));
         assert_eq!(second_leg.international_document_verification(), Some('1'));
-        assert_eq!(second_leg.marketing_carrier_designator(), Some("AC "));
+        assert_eq!(second_leg.marketing_airline(), Some("AC "));
         assert_eq!(second_leg.frequent_flyer_airline(), Some("AC "));
         assert_eq!(second_leg.frequent_flyer_number(), Some("1234567890123   "));
         assert_eq!(second_leg.id_ad_indicator(), Some(' '));
@@ -102,8 +102,8 @@ fn example_2_m2_multiple_legs() {
         assert_eq!(second_leg.airline_individual_use(), Some("WQ"));
     }
 
-    assert_eq!(pass_data.security_data().type_of_security_data(), Some('1'));
-    assert_eq!(pass_data.security_data().security_data(), Some("GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE"));
+    assert_eq!(pass_data.security_data().kind(), Some('1'));
+    assert_eq!(pass_data.security_data().data(), Some("GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE"));
 }
 
 #[test]
@@ -115,21 +115,21 @@ fn appendix_b_1_1_lh_home_printed_boarding_pass() {
     assert_eq!(pass_data.legs().len(), 1);
 
     assert_eq!(pass_data.pax_description(), Some('0'));
-    assert_eq!(pass_data.source_of_check_in(), Some('W'));
-    assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('W'));
-    assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6012"));
+    assert_eq!(pass_data.checkin_src(), Some('W'));
+    assert_eq!(pass_data.boardingpass_issue_src(), Some('W'));
+    assert_eq!(pass_data.boardingpass_issue_date(), Some("6012"));
     assert_eq!(pass_data.doc_type(), Some('B'));
-    assert_eq!(pass_data.airline_designator_of_boarding_pass_issuer(), Some("LH "));
-    assert_eq!(pass_data.baggage_tag_license_plate_numbers(), Some("             "));
-    assert_eq!(pass_data.first_non_consecutive_baggage_tag_license_plate_numbers(), None);
-    assert_eq!(pass_data.second_non_consecutive_baggage_tag_license_plate_numbers(), None);
+    assert_eq!(pass_data.boardingpass_issue_airline(), Some("LH "));
+    assert_eq!(pass_data.bagtags(), Some("             "));
+    assert_eq!(pass_data.bagtags_nc1(), None);
+    assert_eq!(pass_data.bagtags_nc2(), None);
 
     { // Fields in leg 1 of 1.
         let first_leg = &pass_data.legs()[0];
         assert_eq!(first_leg.pnr(), "8OQ6FU ");
         assert_eq!(first_leg.src_airport(), "FRA");
         assert_eq!(first_leg.dst_airport(), "RLG");
-        assert_eq!(first_leg.airline(), "LH ");
+        assert_eq!(first_leg.operating_airline(), "LH ");
         assert_eq!(first_leg.flight_number(), "4010 ");
         assert_eq!(first_leg.flight_day(), "012");
         assert_eq!(first_leg.compartment(), 'C');
@@ -138,10 +138,10 @@ fn appendix_b_1_1_lh_home_printed_boarding_pass() {
         assert_eq!(first_leg.pax_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("220"));
-        assert_eq!(first_leg.document_form_serial_number(), Some("2364224106"));
+        assert_eq!(first_leg.doc_number(), Some("2364224106"));
         assert_eq!(first_leg.selectee_indicator(), Some('0'));
         assert_eq!(first_leg.international_document_verification(), Some(' '));
-        assert_eq!(first_leg.marketing_carrier_designator(), Some("LH "));
+        assert_eq!(first_leg.marketing_airline(), Some("LH "));
         assert_eq!(first_leg.frequent_flyer_airline(), Some("   "));
         assert_eq!(first_leg.frequent_flyer_number(), Some("                "));
         assert_eq!(first_leg.id_ad_indicator(), Some(' '));
@@ -162,15 +162,15 @@ fn appendix_b_1_2_kl_home_printed_boarding_pass() {
     assert_eq!(pass_data.legs().len(), 1);
 
     assert_eq!(pass_data.pax_description(), Some(' '));
-    assert_eq!(pass_data.source_of_check_in(), Some(' '));
-    assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('W'));
+    assert_eq!(pass_data.checkin_src(), Some(' '));
+    assert_eq!(pass_data.boardingpass_issue_src(), Some('W'));
 
     { // Fields in leg 1 of 1.
         let first_leg = &pass_data.legs()[0];
         assert_eq!(first_leg.pnr(), "24Z5RN ");
         assert_eq!(first_leg.src_airport(), "AMS");
         assert_eq!(first_leg.dst_airport(), "BRU");
-        assert_eq!(first_leg.airline(), "KL ");
+        assert_eq!(first_leg.operating_airline(), "KL ");
         assert_eq!(first_leg.flight_number(), "1733 ");
         assert_eq!(first_leg.flight_day(), "019");
         assert_eq!(first_leg.compartment(), 'M');
@@ -179,7 +179,7 @@ fn appendix_b_1_2_kl_home_printed_boarding_pass() {
         assert_eq!(first_leg.pax_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("074"));
-        assert_eq!(first_leg.document_form_serial_number(), Some("2497067621"));
+        assert_eq!(first_leg.doc_number(), Some("2497067621"));
     }
 }
 
@@ -192,21 +192,21 @@ fn appendix_b_2_1_bcbp_printed_at_a_kiosk_ua_ua_kiosk() {
     assert_eq!(pass_data.legs().len(), 1);
 
     assert_eq!(pass_data.pax_description(), Some('0'));
-    assert_eq!(pass_data.source_of_check_in(), Some(' '));
-    assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('K'));
-    assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6007"));
+    assert_eq!(pass_data.checkin_src(), Some(' '));
+    assert_eq!(pass_data.boardingpass_issue_src(), Some('K'));
+    assert_eq!(pass_data.boardingpass_issue_date(), Some("6007"));
     assert_eq!(pass_data.doc_type(), Some('B'));
-    assert_eq!(pass_data.airline_designator_of_boarding_pass_issuer(), Some("UA "));
-    assert_eq!(pass_data.baggage_tag_license_plate_numbers(), Some("             "));
-    assert_eq!(pass_data.first_non_consecutive_baggage_tag_license_plate_numbers(), None);
-    assert_eq!(pass_data.second_non_consecutive_baggage_tag_license_plate_numbers(), None);
+    assert_eq!(pass_data.boardingpass_issue_airline(), Some("UA "));
+    assert_eq!(pass_data.bagtags(), Some("             "));
+    assert_eq!(pass_data.bagtags_nc1(), None);
+    assert_eq!(pass_data.bagtags_nc2(), None);
 
     { // Fields in leg 1 of 1.
         let first_leg = &pass_data.legs()[0];
         assert_eq!(first_leg.pnr(), "A272SL ");
         assert_eq!(first_leg.src_airport(), "ORD");
         assert_eq!(first_leg.dst_airport(), "NRT");
-        assert_eq!(first_leg.airline(), "UA ");
+        assert_eq!(first_leg.operating_airline(), "UA ");
         assert_eq!(first_leg.flight_number(), "0881 ");
         assert_eq!(first_leg.flight_day(), "007");
         assert_eq!(first_leg.compartment(), 'F');
@@ -215,10 +215,10 @@ fn appendix_b_2_1_bcbp_printed_at_a_kiosk_ua_ua_kiosk() {
         assert_eq!(first_leg.pax_status(), '1');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("016"));
-        assert_eq!(first_leg.document_form_serial_number(), Some("2476075898"));
+        assert_eq!(first_leg.doc_number(), Some("2476075898"));
         assert_eq!(first_leg.selectee_indicator(), Some('0'));
         assert_eq!(first_leg.international_document_verification(), Some(' '));
-        assert_eq!(first_leg.marketing_carrier_designator(), Some("UA "));
+        assert_eq!(first_leg.marketing_airline(), Some("UA "));
         assert_eq!(first_leg.frequent_flyer_airline(), Some("UA "));
         assert_eq!(first_leg.frequent_flyer_number(), Some("EY975897        "));
         assert_eq!(first_leg.id_ad_indicator(), Some(' '));
@@ -239,21 +239,21 @@ fn appendix_b_3_1_mobile_bcbp_lh_lufthansa_mobile_bcbp() {
     assert_eq!(pass_data.legs().len(), 1);
 
     assert_eq!(pass_data.pax_description(), Some('0'));
-    assert_eq!(pass_data.source_of_check_in(), Some('W'));
-    assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('M'));
-    assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6012"));
+    assert_eq!(pass_data.checkin_src(), Some('W'));
+    assert_eq!(pass_data.boardingpass_issue_src(), Some('M'));
+    assert_eq!(pass_data.boardingpass_issue_date(), Some("6012"));
     assert_eq!(pass_data.doc_type(), Some('B'));
-    assert_eq!(pass_data.airline_designator_of_boarding_pass_issuer(), Some("LH "));
-    assert_eq!(pass_data.baggage_tag_license_plate_numbers(), Some("             "));
-    assert_eq!(pass_data.first_non_consecutive_baggage_tag_license_plate_numbers(), None);
-    assert_eq!(pass_data.second_non_consecutive_baggage_tag_license_plate_numbers(), None);
+    assert_eq!(pass_data.boardingpass_issue_airline(), Some("LH "));
+    assert_eq!(pass_data.bagtags(), Some("             "));
+    assert_eq!(pass_data.bagtags_nc1(), None);
+    assert_eq!(pass_data.bagtags_nc2(), None);
 
     { // Fields in leg 1 of 1.
         let first_leg = &pass_data.legs()[0];
         assert_eq!(first_leg.pnr(), "8OQ6FU ");
         assert_eq!(first_leg.src_airport(), "FRA");
         assert_eq!(first_leg.dst_airport(), "RLG");
-        assert_eq!(first_leg.airline(), "LH ");
+        assert_eq!(first_leg.operating_airline(), "LH ");
         assert_eq!(first_leg.flight_number(), "4010 ");
         assert_eq!(first_leg.flight_day(), "012");
         assert_eq!(first_leg.compartment(), 'C');
@@ -262,10 +262,10 @@ fn appendix_b_3_1_mobile_bcbp_lh_lufthansa_mobile_bcbp() {
         assert_eq!(first_leg.pax_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("220"));
-        assert_eq!(first_leg.document_form_serial_number(), Some("2364224106"));
+        assert_eq!(first_leg.doc_number(), Some("2364224106"));
         assert_eq!(first_leg.selectee_indicator(), Some('0'));
         assert_eq!(first_leg.international_document_verification(), Some(' '));
-        assert_eq!(first_leg.marketing_carrier_designator(), Some("LH "));
+        assert_eq!(first_leg.marketing_airline(), Some("LH "));
         assert_eq!(first_leg.frequent_flyer_airline(), Some("   "));
         assert_eq!(first_leg.frequent_flyer_number(), Some("                "));
         assert_eq!(first_leg.id_ad_indicator(), Some(' '));

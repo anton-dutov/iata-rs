@@ -16,7 +16,7 @@ fn errors() {
     }
 
     if let Err(e) = BCBP::from("MABRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
-        assert!(e == Error::ExpectedInteger(field::Field::NumberOfLegsEncoded));
+        assert!(e == Error::ExpectedInteger(field::Field::LegsCount));
     }
 
     if let Err(e) = BCBP::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF") {
@@ -44,20 +44,20 @@ fn minimal() {
 
     assert!(bcbp.name()      == "TEST");
     assert!(bcbp.name_last   == "TEST");
-    assert!(bcbp.name_first  == None);
-    assert!(bcbp.ticket_flag == None);
-    assert!(bcbp.version     == None);
+    assert!(bcbp.name_first.is_none());
+    assert!(bcbp.ticket_flag.is_none());
+    assert!(bcbp.version.is_none());
     assert!(bcbp.legs[0].pnr == "8OQ6FU");
-    assert!(bcbp.legs[0].src_airport   == "");
-    assert!(bcbp.legs[0].dst_airport   == "");
-    assert!(bcbp.legs[0].airline       == "");
-    assert!(bcbp.legs[0].flight_number == "");
+    assert!(bcbp.legs[0].src_airport.is_empty());
+    assert!(bcbp.legs[0].dst_airport.is_empty());
+    assert!(bcbp.legs[0].operating_airline.is_empty());
+    assert!(bcbp.legs[0].flight_number.is_empty());
     assert!(bcbp.legs[0].flight_day    == 0);
     assert!(bcbp.legs[0].flight_date(2019) == NaiveDate::from_ymd(2019, 1, 1));
     // assert!(bcbp.legs[0].flight_day_aligned()   == "012");
-    assert!(bcbp.legs[0].compartment    == None);
-    assert!(bcbp.legs[0].seat           == None);
-    assert!(bcbp.legs[0].sequence     == None);
+    assert!(bcbp.legs[0].compartment.is_none());
+    assert!(bcbp.legs[0].seat.is_none());
+    assert!(bcbp.legs[0].checkin_sequence.is_none());
     assert!(bcbp.legs[0].pax_status   == PaxStatus::None);
     assert!(src == res);
 }
@@ -92,14 +92,14 @@ fn home_printed_1_1() {
     assert!(bcbp.legs[0].pnr == "8OQ6FU");
     assert!(bcbp.legs[0].src_airport  == "FRA");
     assert!(bcbp.legs[0].dst_airport  == "RLG");
-    assert!(bcbp.legs[0].airline      == "LH");
+    assert!(bcbp.legs[0].operating_airline      == "LH");
     assert!(bcbp.legs[0].flight_number  == "4010");
     assert!(bcbp.legs[0].flight_day     == 12);
     assert!(bcbp.legs[0].flight_date(2019)    == NaiveDate::from_ymd(2019, 1, 12));
     assert!(bcbp.legs[0].flight_day_aligned() == "012");
     assert!(bcbp.legs[0].compartment          == Some('C'));
     assert!(bcbp.legs[0].seat                 == Some("4D".to_string()));
-    assert!(bcbp.legs[0].sequence             == Some(1));
+    assert!(bcbp.legs[0].checkin_sequence        == Some(1));
     assert!(bcbp.legs[0].pax_status           == PaxStatus::Other('3'));
 }
 
@@ -163,14 +163,14 @@ fn mandatory1() {
     assert!(bcbp.legs[0].pnr == "ABCDEF");
     assert!(bcbp.legs[0].src_airport  == "JFK");
     assert!(bcbp.legs[0].dst_airport  == "SVO");
-    assert!(bcbp.legs[0].airline      == "SU");
+    assert!(bcbp.legs[0].operating_airline      == "SU");
     assert!(bcbp.legs[0].flight_number  == "1234A");
     assert!(bcbp.legs[0].flight_day     == 1);
     assert!(bcbp.legs[0].flight_date(2017)    == NaiveDate::from_ymd(2017, 1, 1));
     assert!(bcbp.legs[0].flight_day_aligned() == "001");
     assert!(bcbp.legs[0].compartment          == Some('Y'));
     assert!(bcbp.legs[0].seat                 == Some("1Z".to_string()));
-    assert!(bcbp.legs[0].sequence             == Some(7));
+    assert!(bcbp.legs[0].checkin_sequence        == Some(7));
     assert!(bcbp.legs[0].pax_status           == PaxStatus::NotCheckedIn);
     assert!(bcbp.build(Mode::Tolerant).unwrap() == src);
     assert!(src == res);
@@ -196,25 +196,25 @@ fn mandatory4() {
     assert!(bcbp.legs[0].pnr  == "ABCDEF");
     assert!(bcbp.legs[0].src_airport  == "JFK");
     assert!(bcbp.legs[0].dst_airport  == "SVO");
-    assert!(bcbp.legs[0].airline      == "SU");
+    assert!(bcbp.legs[0].operating_airline      == "SU");
     assert!(bcbp.legs[0].flight_number  == "1234");
     assert!(bcbp.legs[0].flight_day     == 207);
     assert!(bcbp.legs[1].pnr  == "ABCDEF");
     assert!(bcbp.legs[1].src_airport  == "SVO");
     assert!(bcbp.legs[1].dst_airport  == "LED");
-    assert!(bcbp.legs[1].airline      == "SU");
+    assert!(bcbp.legs[1].operating_airline      == "SU");
     assert!(bcbp.legs[1].flight_number  == "5678");
     assert!(bcbp.legs[1].flight_day     == 210);
     assert!(bcbp.legs[2].pnr  == "ABCDEF");
     assert!(bcbp.legs[2].src_airport  == "LED");
     assert!(bcbp.legs[2].dst_airport  == "SVO");
-    assert!(bcbp.legs[2].airline      == "SU");
+    assert!(bcbp.legs[2].operating_airline      == "SU");
     assert!(bcbp.legs[2].flight_number  == "9876");
     assert!(bcbp.legs[2].flight_day     == 215);
     assert!(bcbp.legs[3].pnr  == "ABCDEF");
     assert!(bcbp.legs[3].src_airport  == "SVO");
     assert!(bcbp.legs[3].dst_airport  == "JFK");
-    assert!(bcbp.legs[3].airline      == "SU");
+    assert!(bcbp.legs[3].operating_airline      == "SU");
     assert!(bcbp.legs[3].flight_number == "1357");
     assert!(bcbp.legs[3].flight_day    == 215);
 
@@ -239,19 +239,19 @@ fn conditional3() {
     assert!(bcbp.legs[0].pnr == "ABCDEF");
     assert!(bcbp.legs[0].src_airport   == "JFK");
     assert!(bcbp.legs[0].dst_airport   == "SVO");
-    assert!(bcbp.legs[0].airline       == "SK");
+    assert!(bcbp.legs[0].operating_airline       == "SK");
     assert!(bcbp.legs[0].flight_number == "1234");
     assert!(bcbp.legs[0].flight_day    == 123);
     assert!(bcbp.legs[1].pnr           == "ABCDEF");
     assert!(bcbp.legs[1].src_airport   == "SVO");
     assert!(bcbp.legs[1].dst_airport   == "FRA");
-    assert!(bcbp.legs[1].airline       == "SU");
+    assert!(bcbp.legs[1].operating_airline       == "SU");
     assert!(bcbp.legs[1].flight_number == "5678");
     assert!(bcbp.legs[1].flight_day    == 135);
     assert!(bcbp.legs[2].pnr           == "ABCDEF");
     assert!(bcbp.legs[2].src_airport   == "FRA");
     assert!(bcbp.legs[2].dst_airport   == "JFK");
-    assert!(bcbp.legs[2].airline       == "SU");
+    assert!(bcbp.legs[2].operating_airline       == "SU");
     assert!(bcbp.legs[2].flight_number == "9876");
     assert!(bcbp.legs[2].flight_day    == 231);
 }
@@ -276,13 +276,13 @@ fn surname_with_space() {
     assert!(bcbp.name_first    == Some("".to_string()));
     assert!(bcbp.ticket_flag     == Some('E'));
     assert!(bcbp.legs[0].pnr  == "ABCDEF");
-    assert!(bcbp.legs[0].src_airport  == "SVO");
-    assert!(bcbp.legs[0].dst_airport  == "LED");
-    assert!(bcbp.legs[0].airline       == "SU");
+    assert!(bcbp.legs[0].src_airport   == "SVO");
+    assert!(bcbp.legs[0].dst_airport   == "LED");
+    assert!(bcbp.legs[0].operating_airline       == "SU");
     assert!(bcbp.legs[0].flight_number == "0036");
     assert!(bcbp.legs[0].flight_day    == 315);
     assert!(bcbp.legs[0].seat          == Some("NS".to_string()));
-    assert!(bcbp.legs[0].sequence      == Some(49));
+    assert!(bcbp.legs[0].checkin_sequence == Some(49));
     assert!(bcbp.legs[0].pax_status    == PaxStatus::Other('3'));
     assert!(bcbp.version               == Some('5'));
     assert!(bcbp.pax_type              == PaxType::Infant);

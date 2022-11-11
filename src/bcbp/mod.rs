@@ -18,7 +18,7 @@ pub use crate::bcbp::error::{
 };
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Mode {
     Tolerant,
     Strict
@@ -26,7 +26,7 @@ pub enum Mode {
 
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaxStatus {
     None,
     NotCheckedIn,
@@ -63,7 +63,7 @@ impl Default for PaxStatus {
 
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaxType {
     None,            // ' '
     Adult,           // 0
@@ -105,13 +105,13 @@ pub struct Leg {
     pub pnr: String,
     pub src_airport: String,
     pub dst_airport: String,
-    pub airline: String,
+    pub operating_airline: String,
     pub flight_number: String,
     pub flight_day: u16,
     pub compartment: Option<char>,
     pub seat: Option<String>,
     pub airline_num: Option<u16>,
-    pub sequence: Option<u16>,
+    pub checkin_sequence: Option<u16>,
     pub pax_status: PaxStatus,
     pub doc_number: Option<String>,
     // Selectee
@@ -202,7 +202,7 @@ impl BCBP {
     pub fn build(&self, _mode: Mode) -> Result<String> {
 
 
-        let mut ret = format!("M{}{:<20}{}", self.legs_count(), self.name(), self.ticket_flag.unwrap_or_else(|| ' '));
+        let mut ret = format!("M{}{:<20}{}", self.legs_count(), self.name(), self.ticket_flag.unwrap_or(' '));
 
         for leg in &self.legs {
 
@@ -212,7 +212,7 @@ impl BCBP {
                 "    ".into()
             };
 
-            let seq = if let Some(seq) = leg.sequence {
+            let seq = if let Some(seq) = leg.checkin_sequence {
                 format!("{:0>4}", seq)
             } else {
                 "    ".into()
@@ -224,10 +224,10 @@ impl BCBP {
                 leg.pnr,
                 leg.src_airport,
                 leg.dst_airport,
-                leg.airline,
+                leg.operating_airline,
                 leg.flight_number,
                 leg.flight_day_aligned(),
-                leg.compartment.unwrap_or_else(|| ' '),
+                leg.compartment.unwrap_or(' '),
                 seat,
                 seq,
                 leg.pax_status.to_char());
@@ -259,54 +259,61 @@ impl BCBP {
         }
 
         // The number of legs informs the breakdown of the various field iterators.
-        let legs = chunk.fetch_usize(Field::NumberOfLegsEncoded, 10)?;
+        let legs = chunk.fetch_usize(Field::LegsCount, 10)?;
 
-        if legs < 1 || legs > 9 {
+        if !(1..=9).contains(&legs) {
             return Err(Error::InvalidLegsCount)
         }
 
         let mut bcbp = BCBP::default();
 
 
-        let name = chunk.fetch_str(Field::PassengerName)?;
+        let name = chunk.fetch_str(Field::PaxName)?;
 
         let (first, last) = bcbp_name(name);
         bcbp.name_last   = first;
         bcbp.name_first  = last;
-        bcbp.ticket_flag = match chunk.fetch_char(Field::ElectronicTicketIndicator)? {
+        bcbp.ticket_flag = match chunk.fetch_char(Field::ETicketIndicator)? {
             ' ' => None,
             c   => Some(c),
         };
 
         for leg_index in 0 .. legs {
 
-            let mut leg = Leg::default();
-
             // Mandatory fields common to all legs.
-            leg.pnr = chunk
-                .fetch_str(Field::OperatingCarrierPnrCode)?
-                .trim()
-                .into();
-            leg.src_airport   = chunk.fetch_str(Field::FromCityAirportCode)?.trim().into();
-            leg.dst_airport   = chunk.fetch_str(Field::ToCityAirportCode)?.trim().into();
-            leg.airline       = chunk
-                .fetch_str(Field::OperatingCarrierDesignator)?
-                .trim().into();
-            leg.flight_number = chunk.fetch_str(Field::FlightNumber)?.trim().into();
-            leg.flight_day    = u16_from_str_force(chunk.fetch_str(Field::DateOfFlight)?, 10);
-            leg.compartment   = match chunk.fetch_char(Field::CompartmentCode)? {
-                ' ' => None,
-                c   => Some(c),
-            };
-            leg.seat          = seat_opt(chunk.fetch_str(Field::SeatNumber)?.trim());
-            leg.sequence      = u32_from_str_opt(chunk
-                .fetch_str(Field::CheckInSequenceNumber)?, 10);
+            let mut leg = Leg {
+                pnr: chunk
+                    .fetch_str(Field::OperatingAirlinePnr)?
+                    .trim()
+                    .into(),
+                src_airport: chunk.fetch_str(Field::FromCityAirportCode)?
+                    .trim()
+                    .into(),
+                dst_airport: chunk.fetch_str(Field::ToCityAirportCode)?
+                    .trim()
+                    .into(),
+                operating_airline: chunk
+                    .fetch_str(Field::OperatingAirline)?
+                    .trim()
+                    .into(),
+                flight_number: chunk.fetch_str(Field::FlightNumber)?.trim().into(),
+                flight_day:    u16_from_str_force(chunk.fetch_str(Field::DateOfFlight)?, 10),
+                compartment: match chunk.fetch_char(Field::CompartmentCode)? {
+                    ' ' => None,
+                    c   => Some(c),
+                },
+                seat:       seat_opt(chunk.fetch_str(Field::SeatNumber)?.trim()),
+                checkin_sequence:   u32_from_str_opt(chunk.fetch_str(Field::CheckInSequence)?, 10),
 
-            leg.pax_status    = PaxStatus::from_char(chunk.fetch_char(Field::PassengerStatus)?);
+                pax_status: PaxStatus::from_char(chunk.fetch_char(Field::PaxStatus)?),
+
+                .. Default::default()
+            };
+
 
             // Field size of the variable size field that follows for the leg.
             let conditional_size =
-                chunk.fetch_usize(Field::FieldSizeOfVariableSizeField, 16)?;
+                chunk.fetch_usize(Field::VariableBlockSize, 16)?;
 
             if conditional_size > chunk.len() {
                 return Err(Error::CoditionalDataSize)
@@ -321,34 +328,34 @@ impl BCBP {
                 if leg_index == 0 {
 
                     // Validate the beginning of version number tag as a sanity check.
-                    let prefix = conditional_item.fetch_char(Field::BeginningOfVersionNumber)?;
+                    let prefix = conditional_item.fetch_char(Field::VersionBegin)?;
                     if prefix != '<' && prefix != '>' {
-                        return Err(Error::InvalidPrefix(Field::BeginningOfVersionNumber, prefix))
+                        return Err(Error::InvalidPrefix(Field::VersionBegin, prefix))
                     }
 
-                    bcbp.version = Some(conditional_item.fetch_char(Field::VersionNumber)?);
+                    bcbp.version = Some(conditional_item.fetch_char(Field::Version)?);
 
                     // Conditional unique fields are embedded in their own variable-length wrapper.
                     if conditional_item.len() > 0 {
                     let len = conditional_item
-                        .fetch_usize(Field::FieldSizeOfStructuredMessageUnique, 16)?;
+                        .fetch_usize(Field::UniqueBlockSize, 16)?;
                     if len > 0 {
                         let mut unique_chunk = conditional_item.fetch_chunk(len)?;
 
                         bcbp.pax_type =
                             unique_chunk
-                            .fetch_char_opt(Field::PassengerDescription)?
+                            .fetch_char_opt(Field::PaxDescription)?
                             .map(PaxType::from_char).unwrap_or_default();
                         bcbp.checkin_src =
-                            unique_chunk.fetch_char_opt(Field::SourceOfCheckIn)?;
+                            unique_chunk.fetch_char_opt(Field::CheckInSrc)?;
                         bcbp.boardingpass_src = unique_chunk
-                            .fetch_char_opt(Field::SourceOfBoardingPassIssuance)?;
+                            .fetch_char_opt(Field::BoardingPassIssueSrc)?;
                         bcbp.boardingpass_issued = unique_chunk
-                            .fetch_str_opt(Field::DateOfIssueOfBoardingPass)?
+                            .fetch_str_opt(Field::BoardingPassIssueDate)?
                             .map(|x| u16_from_str_force(x, 10));
                         bcbp.doc_type = unique_chunk.fetch_char_opt(Field::DocumentType)?;
                         bcbp.boardingpass_airline = unique_chunk
-                            .fetch_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?
+                            .fetch_str_opt(Field::BoardingPassIssueAirline)?
                             .map(|x| x.trim().into());
 
                         // let _ = unique_chunk
@@ -373,7 +380,7 @@ impl BCBP {
             // Conditional fields common to all legs.
             if conditional_item.len() > 0 {
                 let len = conditional_item
-                    .fetch_usize(Field::FieldSizeOfStructuredMessageRepeated, 16)?;
+                    .fetch_usize(Field::RepeatedBlockSize, 16)?;
                 if len > 0 {
                     let mut repeated_chunk = conditional_item.fetch_chunk(len)?;
 
@@ -388,10 +395,10 @@ impl BCBP {
                     let _international_document_verification = repeated_chunk
                         .fetch_char_opt(Field::InternationalDocumentVerification)?;
                     leg.marketing_airline = repeated_chunk
-                        .fetch_str_opt(Field::MarketingCarrierDesignator)?
+                        .fetch_str_opt(Field::MarketingAirline)?
                         .map(|x| x.trim().into());
                     leg.frequent_flyer_airline = repeated_chunk
-                        .fetch_str_opt(Field::FrequentFlyerAirlineDesignator)?
+                        .fetch_str_opt(Field::FrequentFlyerAirline)?
                         .map(|x| x.trim().into());
                     leg.frequent_flyer_number = repeated_chunk
                         .fetch_str_opt(Field::FrequentFlyerNumber)?
@@ -421,17 +428,17 @@ impl BCBP {
         // Remaining input is ascribed to Security Data.
         if chunk.len() > 0 {
 
-            let prefix = chunk.fetch_char(Field::BeginningOfSecurityData)?;
+            let prefix = chunk.fetch_char(Field::SecurityDataBegin)?;
             if prefix != '^' {
-                return Err(Error::InvalidPrefix(Field::BeginningOfSecurityData, prefix))
+                return Err(Error::InvalidPrefix(Field::SecurityDataBegin, prefix))
             }
 
             // The security data type captured as a separate field set as the next field, data length, is discarded.
-            bcbp.security_data_type = chunk.fetch_char_opt(Field::TypeOfSecurityData)?;
+            bcbp.security_data_type = chunk.fetch_char_opt(Field::SecurityDataKind)?;
 
             // Scan the length of the security data.
             if chunk.len() > 0 {
-                let len = chunk.fetch_usize(Field::LengthOfSecurityData, 16)?;
+                let len = chunk.fetch_usize(Field::SecurityDataLen, 16)?;
                 if len > 0 {
                     let body = chunk.fetch_str_len(Field::SecurityData, len)?;
                     bcbp.security_data = Some(body.into());

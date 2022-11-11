@@ -41,25 +41,25 @@ fn invalid_characters() {
 fn invalid_start_of_security_data() {
     // This is a complete and valid Type 'M' boarding pass from the IATA 792B examples, using a '+' instead of '^' for start of security data.
     const PASS_STR: &str = "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100+100";
-    assert_eq!(Bcbp::from(PASS_STR), Err(Error::InvalidPrefix(Field::BeginningOfSecurityData, '+')));
+    assert_eq!(Bcbp::from(PASS_STR), Err(Error::InvalidPrefix(Field::SecurityDataBegin, '+')));
 }
 
 #[test]
 fn invalid_start_of_version_number() {
     // This is a complete and valid Type 'M' boarding pass from the IATA 792B examples, using a '+' instead of '>' for start of version number.
     const PASS_STR: &str = "M2DESMARAIS/LUC       EABC123 YULFRAAC 0834 226F001A0025 14D+6181WW6225BAC 00141234560032A0141234567890 1AC AC 1234567890123    20KYLX58ZDEF456 FRAGVALH 3664 227C012C0002 12E2A0140987654321 1AC AC 1234567890123    2PCNWQ^100";
-    assert_eq!(Bcbp::from(PASS_STR), Err(Error::InvalidPrefix(Field::BeginningOfVersionNumber, '+')));
+    assert_eq!(Bcbp::from(PASS_STR), Err(Error::InvalidPrefix(Field::VersionBegin, '+')));
 }
 
 #[test]
 fn expected_integer() {
     // This is a complete and valid Type 'M' boarding pass from the IATA 792B examples, with leg count 'X'.
     const PASS_STR_1: &str = "MXDESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100^100+";
-    assert_eq!(Bcbp::from(PASS_STR_1), Err(Error::ExpectedInteger(Field::NumberOfLegsEncoded)));
+    assert_eq!(Bcbp::from(PASS_STR_1), Err(Error::ExpectedInteger(Field::LegsCount)));
 
     // This is a complete and valid Type 'M' boarding pass from the IATA 792B examples, with security data length 'YY'.
     const PASS_STR_2: &str = "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100^1YY";
-    assert_eq!(Bcbp::from(PASS_STR_2), Err(Error::ExpectedInteger(Field::LengthOfSecurityData)));
+    assert_eq!(Bcbp::from(PASS_STR_2), Err(Error::ExpectedInteger(Field::SecurityDataLen)));
 }
 
 #[test]
@@ -77,5 +77,5 @@ fn unexpected_end_of_input() {
 
     // This is an incomplete type M pass truncated half way through the name field.
     const PASS_STR_NAME: &str = "M2DESMARAIS";
-    assert_eq!(Bcbp::from(PASS_STR_NAME), Err(Error::UnexpectedEndOfInput(Field::PassengerName)));
+    assert_eq!(Bcbp::from(PASS_STR_NAME), Err(Error::UnexpectedEndOfInput(Field::PaxName)));
 }
