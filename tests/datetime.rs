@@ -20,13 +20,20 @@ fn test_month() {
 
 #[test]
 fn test_day_of_year_valid() {
-    assert!(DayOfYear::new(1).is_ok());
-    assert!(DayOfYear::new(366).is_ok());
+    for day in 1..=366 {
+        assert!(DayOfYear::new(1).is_ok(), "Day {day} must be a valid day of year");
+    }
 }
 
 #[test]
 fn test_day_of_year_invalid() {
-    assert_eq!(DayOfYear::new(0),   Err(Error::InvalidDayOfYearRange(0)));
+    for day in std::iter::once(0).chain(367..=std::u32::MAX) {
+        assert_eq!(
+            DayOfYear::new(day),
+            Err(Error::InvalidDayOfYearRange(day)),
+            "Day {day} must be an invalid day of year"
+        );
+    }
     assert_eq!(DayOfYear::new(367), Err(Error::InvalidDayOfYearRange(367)));
 }
 
@@ -35,26 +42,18 @@ fn test_day_of_year_to_naive_date() {
 
     use chrono::prelude::*;
 
+    for year in 1997..3000 {
+        let it =
+            (1..366)
+                .filter_map(|day|
+                    NaiveDate::from_yo_opt(year, day)
+                    .map(|x| (day, x))
+                );
 
-    assert_eq!(
-        DayOfYear::new(1).unwrap().to_naive_date(2020),
-        Ok(NaiveDate::from_ymd(2020, 1, 1))
-    );
-
-    assert_eq!(
-        DayOfYear::new(1).unwrap().to_naive_date(2021),
-        Ok(NaiveDate::from_ymd(2021, 1, 1))
-    );
-
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date(2020),
-        Ok(NaiveDate::from_ymd(2020, 12, 31))
-    );
-
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date(2021),
-        Err(Error::OverflowNotLeapYear(366))
-    );
+        for (day, date) in it {
+            assert_eq!(DayOfYear::new(day).unwrap().to_naive_date(year), Ok(date));
+        }
+    }
 }
 
 #[test]
