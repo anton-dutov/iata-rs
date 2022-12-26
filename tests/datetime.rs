@@ -15,6 +15,8 @@ const MONTH_LENS: [(Month, u32); 12] = [
     (Month::November,   30),
     (Month::December,   31),
 ];
+const MIN_YEAR: i32 = 1997;
+const MAX_YEAR: i32 = 3000;
 
 #[test]
 fn test_month_as_str() {
@@ -57,7 +59,7 @@ fn test_day_of_year_to_naive_date() {
 
     use chrono::prelude::*;
 
-    for year in 1997..3000 {
+    for year in MIN_YEAR..MAX_YEAR {
         let it =
             (1..=DAYS_IN_YEAR)
                 .filter_map(|day|
@@ -73,33 +75,56 @@ fn test_day_of_year_to_naive_date() {
 
 #[test]
 fn test_day_of_year_to_naive_date_adapt() {
-
     use chrono::prelude::*;
 
-    assert_eq!(
-        DayOfYear::new(1).unwrap().to_naive_date_adapt(&Utc.ymd(2020, 12, 30), 14),
-        Ok(NaiveDate::from_ymd(2021, 1, 1))
-    );
+    const WINDOW_SIZE: u32 = 7;
 
-    assert_eq!(
-        DayOfYear::new(365).unwrap().to_naive_date_adapt(&Utc.ymd(2021, 1, 1), 14),
-        Ok(NaiveDate::from_ymd(2020, 12, 30))
-    );
+    // When ticket is for the next year
+    let next_year_test = |year| {
+        for offset in 0..WINDOW_SIZE {
+            for day in 1..WINDOW_SIZE {
+                assert_eq!(
+                    DayOfYear::new(day).unwrap()
+                    .to_naive_date_adapt(
+                        &Utc.ymd(year, 12, 31 - offset),
+                        WINDOW_SIZE
+                    ),
+                    Ok(NaiveDate::from_ymd_opt(year + 1, 1, day).unwrap())
+                );
+            }
+        }
+    };
 
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date_adapt(&Utc.ymd(2021, 1, 1), 14),
-        Ok(NaiveDate::from_ymd(2020, 12, 31))
-    );
+    // When ticket is for the previous year
+    let prev_year_test = |year| {
+        for offset in 1..WINDOW_SIZE {
+            let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1).unwrap()
+            .to_naive_date_adapt(
+                &Utc.ymd(year, 1, offset),
+                WINDOW_SIZE
+            );
 
-    assert_eq!(
-        DayOfYear::new(365).unwrap().to_naive_date_adapt(&Utc.ymd(2022, 1, 1), 14),
-        Ok(NaiveDate::from_ymd(2021, 12, 31))
-    );
+            if is_leap_year(year - 1) {
+                assert_eq!(edge_date, Ok(NaiveDate::from_yo_opt(year - 1, DAYS_IN_YEAR + 1).unwrap()));
+            } else {
+                assert_eq!(edge_date, Err(Error::OverflowNotLeapYear(DAYS_IN_YEAR + 1)));
+            }
 
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date_adapt(&Utc.ymd(2022, 1, 1), 14),
-        Err(Error::OverflowNotLeapYear(366))
-    );
+            for day in (1..WINDOW_SIZE).map(|x| DAYS_IN_YEAR - x + 1) {
+                assert_eq!(
+                    DayOfYear::new(day).unwrap()
+                    .to_naive_date_adapt(
+                        &Utc.ymd(year, 1, offset),
+                        WINDOW_SIZE
+                    ),
+                    Ok(NaiveDate::from_yo_opt(year - 1, day).unwrap())
+                );
+            }
+        }
+    };
+
+    (MIN_YEAR..(MAX_YEAR - 1)).for_each(next_year_test);
+    ((MIN_YEAR+1)..MAX_YEAR).for_each(prev_year_test);
 }
 
 #[test]
