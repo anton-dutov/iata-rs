@@ -218,7 +218,7 @@ impl ShortDate {
             December  => 31,
         };
 
-        if day > max {
+        if day == 0 || day > max {
             return Err(Error::InvalidDayForMonth(month, day))
         }
 
