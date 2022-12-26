@@ -1,7 +1,25 @@
 use iata::datetime::*;
 
+const DAYS_IN_YEAR: u32 = 365;
+const MONTH_LENS: [(Month, u32); 12] = [
+    (Month::January,    31),
+    (Month::February,   29),
+    (Month::March,      31),
+    (Month::April,      30),
+    (Month::May,        31),
+    (Month::June,       30),
+    (Month::July,       31),
+    (Month::August,     31),
+    (Month::September,  30),
+    (Month::October,    31),
+    (Month::November,   30),
+    (Month::December,   31),
+];
+const MIN_YEAR: i32 = 1997;
+const MAX_YEAR: i32 = 3000;
+
 #[test]
-fn test_month() {
+fn test_month_as_str() {
     use Month::*;
 
     assert_eq!(January  .as_str(), "JAN");
@@ -20,14 +38,20 @@ fn test_month() {
 
 #[test]
 fn test_day_of_year_valid() {
-    assert!(DayOfYear::new(1).is_ok());
-    assert!(DayOfYear::new(366).is_ok());
+    for day in 1..=(DAYS_IN_YEAR + 1) {
+        assert!(DayOfYear::new(1).is_ok(), "Day {day} must be a valid day of year");
+    }
 }
 
 #[test]
 fn test_day_of_year_invalid() {
-    assert_eq!(DayOfYear::new(0),   Err(Error::InvalidDayOfYearRange(0)));
-    assert_eq!(DayOfYear::new(367), Err(Error::InvalidDayOfYearRange(367)));
+    for day in std::iter::once(0).chain((DAYS_IN_YEAR + 2)..=std::u32::MAX) {
+        assert_eq!(
+            DayOfYear::new(day),
+            Err(Error::InvalidDayOfYearRange(day)),
+            "Day {day} must be an invalid day of year"
+        );
+    }
 }
 
 #[test]
@@ -35,90 +59,100 @@ fn test_day_of_year_to_naive_date() {
 
     use chrono::prelude::*;
 
+    for year in MIN_YEAR..MAX_YEAR {
+        let it =
+            (1..=DAYS_IN_YEAR)
+                .filter_map(|day|
+                    NaiveDate::from_yo_opt(year, day)
+                    .map(|x| (day, x))
+                );
 
-    assert_eq!(
-        DayOfYear::new(1).unwrap().to_naive_date(2020),
-        Ok(NaiveDate::from_ymd(2020, 1, 1))
-    );
-
-    assert_eq!(
-        DayOfYear::new(1).unwrap().to_naive_date(2021),
-        Ok(NaiveDate::from_ymd(2021, 1, 1))
-    );
-
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date(2020),
-        Ok(NaiveDate::from_ymd(2020, 12, 31))
-    );
-
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date(2021),
-        Err(Error::OverflowNotLeapYear(366))
-    );
+        for (day, date) in it {
+            assert_eq!(DayOfYear::new(day).unwrap().to_naive_date(year), Ok(date));
+        }
+    }
 }
 
 #[test]
 fn test_day_of_year_to_naive_date_adapt() {
-
     use chrono::prelude::*;
 
-    assert_eq!(
-        DayOfYear::new(1).unwrap().to_naive_date_adapt(&Utc.ymd(2020, 12, 30), 14),
-        Ok(NaiveDate::from_ymd(2021, 1, 1))
-    );
+    const WINDOW_SIZE_MAX: u32 = 31;
 
-    assert_eq!(
-        DayOfYear::new(365).unwrap().to_naive_date_adapt(&Utc.ymd(2021, 1, 1), 14),
-        Ok(NaiveDate::from_ymd(2020, 12, 30))
-    );
+    // When ticket is for the next year
+    let next_year_test = |window, year| {
+        for offset in 0..window {
+            for day in 1..window {
+                assert_eq!(
+                    DayOfYear::new(day).unwrap()
+                    .to_naive_date_adapt(
+                        &Utc.ymd(year, 12, 31 - offset),
+                        window
+                    ),
+                    Ok(NaiveDate::from_ymd_opt(year + 1, 1, day).unwrap())
+                );
+            }
+        }
+    };
 
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date_adapt(&Utc.ymd(2021, 1, 1), 14),
-        Ok(NaiveDate::from_ymd(2020, 12, 31))
-    );
+    // When ticket is for the previous year
+    let prev_year_test = |window, year| {
+        for offset in 1..window {
+            let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1).unwrap()
+            .to_naive_date_adapt(
+                &Utc.ymd(year, 1, offset),
+                window
+            );
 
-    assert_eq!(
-        DayOfYear::new(365).unwrap().to_naive_date_adapt(&Utc.ymd(2022, 1, 1), 14),
-        Ok(NaiveDate::from_ymd(2021, 12, 31))
-    );
+            if is_leap_year(year - 1) {
+                assert_eq!(edge_date, Ok(NaiveDate::from_yo_opt(year - 1, DAYS_IN_YEAR + 1).unwrap()));
+            } else {
+                assert_eq!(edge_date, Err(Error::OverflowNotLeapYear(DAYS_IN_YEAR + 1)));
+            }
 
-    assert_eq!(
-        DayOfYear::new(366).unwrap().to_naive_date_adapt(&Utc.ymd(2022, 1, 1), 14),
-        Err(Error::OverflowNotLeapYear(366))
-    );
+            for day in (1..window).map(|x| DAYS_IN_YEAR - x + 1) {
+                assert_eq!(
+                    DayOfYear::new(day).unwrap()
+                    .to_naive_date_adapt(
+                        &Utc.ymd(year, 1, offset),
+                        window
+                    ),
+                    Ok(NaiveDate::from_yo_opt(year - 1, day).unwrap())
+                );
+            }
+        }
+    };
+
+    for window in 1..WINDOW_SIZE_MAX {
+        (MIN_YEAR..(MAX_YEAR - 1)).for_each(|year| next_year_test(window, year));
+        ((MIN_YEAR+1)..MAX_YEAR).for_each(|year| prev_year_test(window, year));
+    }
 }
 
 #[test]
 fn test_short_date() {
+    for (month, len) in MONTH_LENS {
+        for day in 1..=len {
+            let short_date = ShortDate::new(month, day)
+                .expect(&format!("{day} must be a valid of day of {}", month.as_str()));
 
-    use Month::*;
-
-    let month = May;
-    let day   = 8;
-
-    let short_date = ShortDate::new(month, day).unwrap();
-
-    assert_eq!(short_date.day(), day);
-    assert_eq!(short_date.month(), month);
-    assert_eq!(short_date.to_string(), "08MAY");
+            assert_eq!(short_date.day(), day);
+            assert_eq!(short_date.month(), month);
+            assert_eq!(short_date.to_string(), format!("{day:02}{}", month.as_str()));
+        }
+    }
 }
 
 
 #[test]
 fn test_short_date_invalid() {
+    for (month, len) in MONTH_LENS {
+        let it =
+            std::iter::once(0)
+            .chain((len+1)..u32::MAX);
 
-    use Month::*;
-
-    assert_eq!(ShortDate::new(January  ,32), Err(Error::InvalidDayForMonth(January  ,32)));
-    assert_eq!(ShortDate::new(February ,30), Err(Error::InvalidDayForMonth(February ,30)));
-    assert_eq!(ShortDate::new(March    ,32), Err(Error::InvalidDayForMonth(March    ,32)));
-    assert_eq!(ShortDate::new(April    ,31), Err(Error::InvalidDayForMonth(April    ,31)));
-    assert_eq!(ShortDate::new(May      ,32), Err(Error::InvalidDayForMonth(May      ,32)));
-    assert_eq!(ShortDate::new(June     ,31), Err(Error::InvalidDayForMonth(June     ,31)));
-    assert_eq!(ShortDate::new(July     ,32), Err(Error::InvalidDayForMonth(July     ,32)));
-    assert_eq!(ShortDate::new(August   ,32), Err(Error::InvalidDayForMonth(August   ,32)));
-    assert_eq!(ShortDate::new(September,31), Err(Error::InvalidDayForMonth(September,31)));
-    assert_eq!(ShortDate::new(October  ,32), Err(Error::InvalidDayForMonth(October  ,32)));
-    assert_eq!(ShortDate::new(November ,31), Err(Error::InvalidDayForMonth(November ,31)));
-    assert_eq!(ShortDate::new(December ,32), Err(Error::InvalidDayForMonth(December ,32)));
+        for day in it {
+            assert_eq!(ShortDate::new(month, day), Err(Error::InvalidDayForMonth(month, day)));
+        }
+    }
 }

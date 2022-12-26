@@ -70,12 +70,13 @@ impl DayOfYear {
 
         let mut year = for_date.year();
 
-        println!("{:?} {}", self.0, days);
+        //println!("{:?} {}", self.0, days);
 
-        if self.0 < days && for_date.ordinal() > (365 - days) {
+        let upper_limit = 365 - days;
+        if self.0 < days && for_date.ordinal() > upper_limit {
             // Next year
             year += 1;
-        } else if self.0 > days {
+        } else if self.0 > upper_limit && for_date.ordinal() < days {
             // Previous year
             year -= 1;
         }
@@ -218,7 +219,7 @@ impl ShortDate {
             December  => 31,
         };
 
-        if day > max {
+        if day == 0 || day > max {
             return Err(Error::InvalidDayForMonth(month, day))
         }
 
