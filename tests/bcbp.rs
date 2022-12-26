@@ -1,5 +1,62 @@
+use std::str::from_utf8;
+
 use iata::bcbp::*;
 use iata::datetime::DayOfYear;
+
+static BASE_BCBP: &str = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100";
+
+fn ascii_bytes() -> impl Iterator<Item = u8> {
+    (0..u8::MAX).filter(u8::is_ascii)
+}
+
+#[test]
+fn basic_parsing() {
+    Bcbp::from(BASE_BCBP).expect("Failed to parse a sample BCBP");
+}
+
+#[test]
+fn error_invalid_format_code() {
+    let mut base_bytes = BASE_BCBP.as_bytes().to_owned();
+
+    for b in ascii_bytes() {
+        if b == b'M' { continue; }
+
+        base_bytes[0] = b;
+
+        let s = from_utf8(&base_bytes).unwrap();
+        let err = Bcbp::from(s).expect_err("Parsing should have failed");
+
+        assert_eq!(
+            err,
+            Error::InvalidFormatCode(b as char),
+        );
+    }
+}
+
+#[test]
+fn error_invalid_legs_count() {
+    let mut base_bytes = BASE_BCBP.as_bytes().to_owned();
+
+    for b in ascii_bytes() {
+        if ('1'..='9').contains(&(b as char)) { continue; }
+
+        base_bytes[1] = b;
+        let s = from_utf8(&base_bytes).unwrap();
+        let err = Bcbp::from(s).expect_err("Parsing should have failed");
+
+        if b == b'0' {
+            assert_eq!(
+                err,
+                Error::InvalidLegsCount,
+            );
+        } else {
+            assert_eq!(
+                err,
+                Error::ExpectedInteger(field::Field::NumberOfLegsEncoded),
+            );
+        }
+    }
+}
 
 #[test]
 fn errors() {
@@ -8,25 +65,9 @@ fn errors() {
         assert!(e == Error::MandatoryDataSize);
     }
 
-    if let Err(e) = Bcbp::from("X1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
-        assert!(e == Error::InvalidFormatCode('X'));
-    }
-
-    if let Err(e) = Bcbp::from("M0BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
-        assert!(e == Error::InvalidLegsCount);
-    }
-
-    if let Err(e) = Bcbp::from("MABRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100") {
-        assert!(e == Error::ExpectedInteger(field::Field::NumberOfLegsEncoded));
-    }
-
     if let Err(e) = Bcbp::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF") {
         assert!(e == Error::CoditionalDataSize);
     }
-
-        // println!("{:?}", Bcbp::from("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100"));
-        // assert!(false);
-
 }
 
 // Minimal
