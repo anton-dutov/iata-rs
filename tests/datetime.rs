@@ -77,17 +77,17 @@ fn test_day_of_year_to_naive_date() {
 fn test_day_of_year_to_naive_date_adapt() {
     use chrono::prelude::*;
 
-    const WINDOW_SIZE: u32 = 7;
+    const WINDOW_SIZE_MAX: u32 = 31;
 
     // When ticket is for the next year
-    let next_year_test = |year| {
-        for offset in 0..WINDOW_SIZE {
-            for day in 1..WINDOW_SIZE {
+    let next_year_test = |window, year| {
+        for offset in 0..window {
+            for day in 1..window {
                 assert_eq!(
                     DayOfYear::new(day).unwrap()
                     .to_naive_date_adapt(
                         &Utc.ymd(year, 12, 31 - offset),
-                        WINDOW_SIZE
+                        window
                     ),
                     Ok(NaiveDate::from_ymd_opt(year + 1, 1, day).unwrap())
                 );
@@ -96,12 +96,12 @@ fn test_day_of_year_to_naive_date_adapt() {
     };
 
     // When ticket is for the previous year
-    let prev_year_test = |year| {
-        for offset in 1..WINDOW_SIZE {
+    let prev_year_test = |window, year| {
+        for offset in 1..window {
             let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1).unwrap()
             .to_naive_date_adapt(
                 &Utc.ymd(year, 1, offset),
-                WINDOW_SIZE
+                window
             );
 
             if is_leap_year(year - 1) {
@@ -110,12 +110,12 @@ fn test_day_of_year_to_naive_date_adapt() {
                 assert_eq!(edge_date, Err(Error::OverflowNotLeapYear(DAYS_IN_YEAR + 1)));
             }
 
-            for day in (1..WINDOW_SIZE).map(|x| DAYS_IN_YEAR - x + 1) {
+            for day in (1..window).map(|x| DAYS_IN_YEAR - x + 1) {
                 assert_eq!(
                     DayOfYear::new(day).unwrap()
                     .to_naive_date_adapt(
                         &Utc.ymd(year, 1, offset),
-                        WINDOW_SIZE
+                        window
                     ),
                     Ok(NaiveDate::from_yo_opt(year - 1, day).unwrap())
                 );
@@ -123,8 +123,10 @@ fn test_day_of_year_to_naive_date_adapt() {
         }
     };
 
-    (MIN_YEAR..(MAX_YEAR - 1)).for_each(next_year_test);
-    ((MIN_YEAR+1)..MAX_YEAR).for_each(prev_year_test);
+    for window in 1..WINDOW_SIZE_MAX {
+        (MIN_YEAR..(MAX_YEAR - 1)).for_each(|year| next_year_test(window, year));
+        ((MIN_YEAR+1)..MAX_YEAR).for_each(|year| prev_year_test(window, year));
+    }
 }
 
 #[test]
