@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use iata::datetime::*;
 
 const DAYS_IN_YEAR: u16 = 365;
@@ -34,6 +36,24 @@ fn test_month_as_str() {
     assert_eq!(October  .as_str(), "OCT");
     assert_eq!(November .as_str(), "NOV");
     assert_eq!(December .as_str(), "DEC");
+}
+
+#[test]
+fn test_month_to_as_str() {
+    use Month::*;
+
+    assert_eq!(Month::from_str(January  .as_str()).unwrap(), January    );
+    assert_eq!(Month::from_str(February .as_str()).unwrap(), February   );
+    assert_eq!(Month::from_str(March    .as_str()).unwrap(), March      );
+    assert_eq!(Month::from_str(April    .as_str()).unwrap(), April      );
+    assert_eq!(Month::from_str(May      .as_str()).unwrap(), May        );
+    assert_eq!(Month::from_str(June     .as_str()).unwrap(), June       );
+    assert_eq!(Month::from_str(July     .as_str()).unwrap(), July       );
+    assert_eq!(Month::from_str(August   .as_str()).unwrap(), August     );
+    assert_eq!(Month::from_str(September.as_str()).unwrap(), September  );
+    assert_eq!(Month::from_str(October  .as_str()).unwrap(), October    );
+    assert_eq!(Month::from_str(November .as_str()).unwrap(), November   );
+    assert_eq!(Month::from_str(December .as_str()).unwrap(), December   );
 }
 
 #[test]
