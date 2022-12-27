@@ -3,7 +3,233 @@ use std::str::from_utf8;
 use iata::bcbp::*;
 use iata::datetime::DayOfYear;
 
-static BASE_BCBP: &str = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100";
+mod samples {
+    use std::{str::from_utf8, num::NonZeroU16};
+
+    use rand::{prelude, seq::{IteratorRandom, SliceRandom}, distributions::Standard, thread_rng};
+    use iata::{datetime::DayOfYear, bcbp::{Leg, PaxStatus}};
+
+    pub static BASE_BCBP: &str = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100";
+
+    pub struct NameSample<'a> {
+        pub fullname: &'a [u8; 20],
+        pub lastname: &'a [u8],
+        pub firstname: Option<&'a [u8]>,
+    }
+
+    pub static NAMES: &[NameSample] = &[
+        NameSample {
+            fullname: b"TEST/TESTOVICH      ",
+            lastname: b"TEST",
+            firstname: Some(b"TESTOVICH"),
+        },
+        NameSample {
+            fullname: b"TEST                ",
+            lastname: b"TEST",
+            firstname: None,
+        },
+        NameSample {
+            fullname: b"I FILL UP THE ENTIRE",
+            lastname: b"I FILL UP THE ENTIRE",
+            firstname: None,
+        },
+        NameSample {
+            fullname: b"BIGLONGBIG/FIZZBUZZF",
+            lastname: b"BIGLONGBIG",
+            firstname: Some(b"FIZZBUZZF"),
+        },
+        NameSample {
+            fullname: b"ROMAN/ROMANOV       ",
+            lastname: b"ROMAN",
+            firstname: Some(b"ROMANOV"),
+        },
+        NameSample {
+            fullname: b"EGOREGOREGOREGOR    ",
+            lastname: b"EGOREGOREGOREGOR",
+            firstname: None,
+        },
+        NameSample {
+            fullname: b"ADAM/JOHNSON        ",
+            lastname: b"ADAM",
+            firstname: Some(b"JOHNSON"),
+        },
+        NameSample {
+            fullname: b"ARNOLD/ROBERTSON    ",
+            lastname: b"ARNOLD",
+            firstname: Some(b"ROBERTSON"),
+        },
+    ];
+
+    pub static PNRS: &[&[u8; 7]] = &[
+        b"JNUFFX ",
+        b"8OQ6FU ",
+        b"AGGA   ",
+        b"1234ABC",
+        b"ABC1234",
+        b"1A0D31J",
+    ];
+
+    pub static AIRPORTS: &[&[u8; 3]] = &[
+        b"AAA",
+        b"AAB",
+        b"AAC",
+        b"AAD",
+        b"AAE",
+        b"AAF",
+        b"GAR",
+        b"GBA",
+        b"GBI",
+        b"AAJ",
+        b"AAK",
+        b"AAL",
+        b"NAA",
+        b"NAC",
+        b"AAO",
+        b"CAR",
+        b"CCH",
+        b"JAA",
+        b"JAQ",
+        b"AAU",
+        b"AAV",
+        b"AAX",
+        b"AAY",
+        b"AAZ",
+        b"ABA",
+        b"ABB",
+        b"ABC",
+        b"ABD",
+        b"LED",
+        b"FRA",
+
+    ];
+
+    pub static AIRLINES: &[&[u8; 3]] = &[
+        b"WOW",
+        b"B  ",
+        b"LH ",
+        b"RU ",
+        b"EN ",
+        b"UK ",
+        b"US ",
+        b"PO ",
+        b"LOL",
+    ];
+
+    fn flight_number() -> [u8; 5] {
+        let mut rng = thread_rng();
+
+        [
+            (b'0'..=b'9').choose(&mut rng).unwrap(),
+            (b'0'..=b'9').choose(&mut rng).unwrap(),
+            (b'0'..=b'9').choose(&mut rng).unwrap(),
+            (b'0'..=b'9').choose(&mut rng).unwrap(),
+            (b'A'..=b'Z').chain(std::iter::once(b' ')).choose(&mut rng).unwrap(),
+        ]
+    }
+
+    fn compartment() -> u8 {
+        let mut rng = thread_rng();
+
+        (b'A'..=b'Z').choose(&mut rng).unwrap()
+    }
+
+    fn day_of_year() -> DayOfYear {
+        let mut rng = thread_rng();
+        let x = (1..=365).choose(&mut rng).unwrap();
+
+        DayOfYear::new(x).unwrap()
+    }
+
+    fn seat() -> [u8; 4] {
+        let mut rng = thread_rng();
+
+        *[
+            [
+                (b'1'..=b'9').choose(&mut rng).unwrap(),
+                (b'1'..=b'9').choose(&mut rng).unwrap(),
+                (b'1'..=b'9').choose(&mut rng).unwrap(),
+                (b'A'..b'Z').chain(std::iter::once(b' ')).choose(&mut rng).unwrap(),
+            ],
+            *b"INF "
+        ].choose(&mut rng).unwrap()
+    }
+
+    fn pax_status() -> u8 {
+        let mut rng = thread_rng();
+
+        (b'0'..=b'9').choose(&mut rng).unwrap()
+    }
+
+    fn pnr() -> [u8; 7] {
+        let mut rng = thread_rng();
+
+        **PNRS.choose(&mut rng).unwrap()
+    }
+
+    fn airport() -> [u8; 3] {
+        let mut rng = thread_rng();
+
+        **AIRPORTS.choose(&mut rng).unwrap()
+    }
+
+    fn airline() -> [u8; 3] {
+        let mut rng = thread_rng();
+
+        **AIRLINES.choose(&mut rng).unwrap()
+    }
+
+    pub fn leg() -> (Leg, impl Iterator<Item = u8>) {
+        fn to_utf8(b: &[u8]) -> String {
+            from_utf8(b).unwrap().trim().to_owned()
+        }
+
+        let pnr = pnr();
+        let src_airport = airport();
+        let dst_airport = airport();
+        let airline = airline();
+        let flight_number = flight_number();
+        let flight_day = day_of_year();
+        let compartment = compartment();
+        let seat = seat();
+        let checking_sequence = rand::random::<NonZeroU16>().get();
+        let pax_status = pax_status();
+
+        let checkin_sequence_bytes = if checking_sequence < 10000 {
+            format!("{checking_sequence:04} ").into_bytes()
+        } else {
+            checking_sequence.to_string().into_bytes()
+        };
+        let flight_day_ordinal = flight_day.ordinal();
+
+        (
+            Leg {
+                pnr: Some(to_utf8(&pnr)),
+                src_airport: Some(to_utf8(&src_airport)),
+                dst_airport: Some(to_utf8(&dst_airport)),
+                airline: Some(to_utf8(&airline)),
+                flight_number: Some(to_utf8(&flight_number)),
+                flight_day: Some(flight_day),
+                compartment: Some(compartment as char),
+                seat: Some(to_utf8(&seat)),
+                sequence: Some(checking_sequence),
+                pax_status: PaxStatus::from_char(pax_status as char),
+                ..Default::default()
+            },
+            std::iter::empty()
+                .chain(pnr)
+                .chain(src_airport)
+                .chain(dst_airport)
+                .chain(airline)
+                .chain(flight_number)
+                .chain(format!("{:03}", flight_day_ordinal).into_bytes())
+                .chain(std::iter::once(compartment))
+                .chain(seat)
+                .chain(checkin_sequence_bytes)
+                .chain(std::iter::once(pax_status))
+                .chain(*b"00")
+        )
+    }
+}
 
 fn ascii_bytes() -> impl Iterator<Item = u8> {
     (0..u8::MAX).filter(u8::is_ascii)
@@ -11,12 +237,12 @@ fn ascii_bytes() -> impl Iterator<Item = u8> {
 
 #[test]
 fn basic_parsing() {
-    Bcbp::from(BASE_BCBP).expect("Failed to parse a sample BCBP");
+    Bcbp::from(samples::BASE_BCBP).expect("Failed to parse a sample BCBP");
 }
 
 #[test]
 fn error_invalid_format_code() {
-    let mut base_bytes = BASE_BCBP.as_bytes().to_owned();
+    let mut base_bytes = samples::BASE_BCBP.as_bytes().to_owned();
 
     for b in ascii_bytes() {
         if b == b'M' { continue; }
@@ -35,7 +261,7 @@ fn error_invalid_format_code() {
 
 #[test]
 fn error_invalid_legs_count() {
-    let mut base_bytes = BASE_BCBP.as_bytes().to_owned();
+    let mut base_bytes = samples::BASE_BCBP.as_bytes().to_owned();
 
     for b in ascii_bytes() {
         if ('1'..='9').contains(&(b as char)) { continue; }
@@ -59,8 +285,7 @@ fn error_invalid_legs_count() {
 }
 
 #[test]
-fn errors() {
-
+fn error_data_size() {
     if let Err(e) = Bcbp::from("") {
         assert!(e == Error::MandatoryDataSize);
     }
@@ -73,36 +298,103 @@ fn errors() {
 // Minimal
 #[test]
 fn minimal() {
-    let src = "M1TEST                 8OQ6FU                             00";
-    let tmp = Bcbp::from(src);
+    use itertools::iproduct;
 
-    println!("RES {:#?}", tmp);
+    for name in samples::NAMES {
+        for pnr in samples::PNRS {
+            let mut src = Vec::with_capacity(60);
 
-    assert!(tmp.is_ok());
+            src.extend(b"M1");
+            src.extend(name.fullname);
+            src.push(b' ');
+            src.extend(**pnr);
+            src.extend(std::iter::repeat(b' ').take(28));
+            src.extend(b"00");
 
-    let bcbp = tmp.unwrap();
-    let res  = bcbp.build(Mode::Tolerant).unwrap();
+            assert_eq!(src.len(), 60);
+            assert!(src.is_ascii());
 
-    assert_eq!(bcbp.name(),        "TEST");
-    assert_eq!(bcbp.name_last,     "TEST");
-    assert_eq!(bcbp.name_first,    None);
-    assert_eq!(bcbp.ticket_flag,   None);
-    assert_eq!(bcbp.version,       None);
+            let src = from_utf8(&src).unwrap();
+            let tmp = Bcbp::from(src);
 
-    assert_eq!(bcbp.legs[0].pnr.as_deref(),           Some("8OQ6FU"));
-    assert_eq!(bcbp.legs[0].src_airport.as_deref(),   None);
-    assert_eq!(bcbp.legs[0].dst_airport.as_deref(),   None);
-    assert_eq!(bcbp.legs[0].airline.as_deref(),       None);
-    assert_eq!(bcbp.legs[0].flight_number.as_deref(), None);
-    assert_eq!(bcbp.legs[0].flight_day,               None);
-    assert_eq!(bcbp.legs[0].compartment,              None);
-    assert_eq!(bcbp.legs[0].seat,                     None);
-    assert_eq!(bcbp.legs[0].sequence,                 None);
-    assert_eq!(bcbp.legs[0].pax_status,               PaxStatus::None);
+            //println!("RES {tmp:#?}");
 
-    assert_eq!(src, res);
+            assert!(tmp.is_ok());
+            let bcbp = tmp.unwrap();
+
+            assert_eq!(bcbp.name(),        from_utf8(name.fullname).unwrap().trim());
+            assert_eq!(bcbp.name_last,     from_utf8(name.lastname).unwrap());
+            assert_eq!(bcbp.name_first.as_deref(),    name.firstname.map(|x| from_utf8(x).unwrap()));
+            assert_eq!(bcbp.ticket_flag,   None);
+            assert_eq!(bcbp.version,       None);
+
+            assert_eq!(bcbp.legs[0].pnr.as_deref(),           Some(from_utf8(*pnr).unwrap().trim()));
+            assert_eq!(bcbp.legs[0].src_airport.as_deref(),   None);
+            assert_eq!(bcbp.legs[0].dst_airport.as_deref(),   None);
+            assert_eq!(bcbp.legs[0].airline.as_deref(),       None);
+            assert_eq!(bcbp.legs[0].flight_number.as_deref(), None);
+            assert_eq!(bcbp.legs[0].flight_day,               None);
+            assert_eq!(bcbp.legs[0].compartment,              None);
+            assert_eq!(bcbp.legs[0].seat,                     None);
+            assert_eq!(bcbp.legs[0].sequence,                 None);
+            assert_eq!(bcbp.legs[0].pax_status,               PaxStatus::None);
+
+            assert_eq!(bcbp.build(Mode::Tolerant).unwrap(), src);
+        }
+    }
 }
 
+#[test]
+fn mandatory_legs() {
+    for leg_count in 1..=9 {
+        println!("leg_count: {leg_count}");
+        for name in samples::NAMES {
+            for _ in 0..1000 {
+                let mut v = Vec::new();
+
+                v.extend(b"M");
+                v.extend(format!("{leg_count}").as_bytes());
+                v.extend(name.fullname);
+                v.extend(b"E");
+
+                let mut legs = Vec::with_capacity(leg_count);
+                for _ in 0..leg_count {
+                    let (leg, stream) = samples::leg();
+                    v.extend(stream);
+
+                    legs.push(leg);
+                }
+
+                assert_eq!(v.len(), 23 + leg_count * 37);
+
+                let src = String::from_utf8(v).unwrap();
+                let bcbp = Bcbp::from(src.as_str()).expect("Expected the parsing process to succeed");
+
+                //println!("RES {bcbp:#?}");
+                //println!("LEGS {legs:#?}");
+
+                assert_eq!(bcbp.name(),        from_utf8(name.fullname).unwrap().trim());
+                assert_eq!(bcbp.name_last,     from_utf8(name.lastname).unwrap());
+                assert_eq!(bcbp.name_first.as_deref(),    name.firstname.map(|x| from_utf8(x).unwrap()));
+                assert_eq!(bcbp.ticket_flag,   Some('E'));
+                assert_eq!(bcbp.version,       None);
+
+                for i in 0..leg_count {
+                    assert_eq!(bcbp.legs[i].pnr,            legs[i].pnr);
+                    assert_eq!(bcbp.legs[i].src_airport,    legs[i].src_airport);
+                    assert_eq!(bcbp.legs[i].dst_airport,    legs[i].dst_airport);
+                    assert_eq!(bcbp.legs[i].airline,        legs[i].airline);
+                    assert_eq!(bcbp.legs[i].flight_number,  legs[i].flight_number);
+                    assert_eq!(bcbp.legs[i].flight_day,     legs[i].flight_day);
+                    assert_eq!(bcbp.legs[i].compartment,    legs[i].compartment);
+                    assert_eq!(bcbp.legs[i].seat,           legs[i].seat);
+                    assert_eq!(bcbp.legs[i].sequence,       legs[i].sequence);
+                    assert_eq!(bcbp.legs[i].pax_status,     legs[i].pax_status);
+                }
+            }
+        }
+    }
+}
 
 // B.1.1 LH Home Printed Boarding Pass
 #[test]
