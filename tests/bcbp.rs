@@ -153,7 +153,7 @@ mod samples {
                 (b'1'..=b'9').choose(&mut rng).unwrap(),
                 (b'1'..=b'9').choose(&mut rng).unwrap(),
                 (b'1'..=b'9').choose(&mut rng).unwrap(),
-                (b'A'..b'Z').chain(std::iter::once(b' ')).choose(&mut rng).unwrap(),
+                (b'A'..b'Z').choose(&mut rng).unwrap(),
             ],
             *b"INF "
         ].choose(&mut rng).unwrap()
