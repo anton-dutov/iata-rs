@@ -203,7 +203,11 @@ impl Bcbp {
         for leg in &self.legs {
 
             let seat = if let Some(ref seat) = leg.seat {
-                format!("{:0>4}", seat)
+                if seat == "INF" {
+                    "INF".to_owned()
+                } else {
+                    format!("{:0>4}", seat)
+                }
             } else {
                 "    ".into()
             };
@@ -215,7 +219,7 @@ impl Bcbp {
             };
 
 
-            ret = format!("{}{:<7}{:<3}{:<3}{:<3}{:<5}{:3}{:1}{:>4}{:<5}{:1}00",
+            ret = format!("{}{:<7}{:<3}{:<3}{:<3}{:<5}{:3}{:1}{:<4}{:<5}{:1}00",
                 ret,
                 leg.pnr.as_deref().unwrap_or(""),
                 leg.src_airport.as_deref().unwrap_or(""),
