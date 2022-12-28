@@ -316,6 +316,8 @@ impl ShortDate {
     /// All attempts to give the function an illegal day of month will result in
     /// [`Error::InvalidDayForMonth`].
     ///
+    /// # Examples
+    ///
     /// ```
     /// use iata::datetime::{ShortDate, Month};
     ///
@@ -367,8 +369,12 @@ impl ShortDate {
         self.month
     }
 
-    // NOTE doesn't actually ever error. That seems to be an implementation error though.
     /// Converts the date into the [`NaiveDate`] type from `chrono`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::OverflowNotLeapYear`] if `year` is not a leap year and `self`
+    /// turns out to contain a date that is specific to a leap year.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
 
         use Month::*;
@@ -493,6 +499,12 @@ pub struct Time {
 }
 
 impl Time {
+    // NOTE doesn't actually return errors on failure.
+    /// Constructs the struct out of given values.
+    ///
+    /// # Panics
+    /// Panics if `hours` is greater than 23, `minutes` is greater than 59 or `second` is isn't none
+    /// and greater than 59.
     pub fn new(hour: u8, minute: u8, second: Option<u8>, timezone: TzTag) -> Result<Self, Error> {
 
         if hour > 23 {
@@ -517,26 +529,41 @@ impl Time {
         })
     }
 
+    /// Returns the hour component.
     pub fn hour(&self) -> u8 {
         self.hour
     }
 
+    /// Returns the minute component.
     pub fn minute(&self) -> u8 {
         self.minute
     }
 
+    /// Returns the second component.
     pub fn second(&self) -> Option<u8> {
         self.second
     }
 
+    /// Returns the timezone.
     pub fn timezone(&self) -> TzTag {
         self.timezone
     }
 
+    /// Converts this sturct into [`chrono::NaiveTime`].
     pub fn to_time(&self) -> time::Time {
         time::Time::from_hms(self.hour, self.minute, self.second.unwrap_or_default()).unwrap()
     }
 
+    /// Parses the time from a "short string" -- a string of format
+    /// `HHMM`.
+    ///
+    /// # Errors
+    ///
+    /// * If the input string is not exactly of length 4 -- [`Error::InvalidInput`] is returned.
+    /// * If the first two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidHour`] is returned.
+    /// * If the second two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidMinute`] is returned.
     pub fn from_short_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 4 {
@@ -557,6 +584,16 @@ impl Time {
         Self::new(hour, minute, None, TzTag::None)
     }
 
+    /// Parses the time from a "short string" -- a string of format
+    /// `HHMMSST` or `HHMMT`.
+    ///
+    /// # Errors
+    ///
+    /// * If the input string is not exactly of length 5 or 7 -- [`Error::InvalidInput`] is returned.
+    /// * If the first two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidHour`] is returned.
+    /// * If the second two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidMinute`] is returned.
     pub fn from_full_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 5 && s.len() != 7 {
