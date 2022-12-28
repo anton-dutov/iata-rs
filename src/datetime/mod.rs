@@ -337,16 +337,16 @@ pub struct Time {
 impl Time {
     pub fn new(hour: u8, minute: u8, second: Option<u8>, timezone: TzTag) -> Result<Self, Error> {
 
-        if hour >= 23 {
+        if hour > 23 {
             return Err(Error::InvalidHourValue(hour));
         }
 
-        if minute >= 59 {
+        if minute > 59 {
             return Err(Error::InvalidMinuteValue(minute));
         }
 
         if let Some(second) = second {
-            if second >= 59 {
+            if second > 59 {
                 return Err(Error::InvalidSecondValue(second));
             }
         }
