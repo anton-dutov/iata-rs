@@ -17,6 +17,11 @@ const MONTH_LENS: [(Month, u8); 12] = [
     (Month::November,   30),
     (Month::December,   31),
 ];
+const TIMEZONE_TAGS: [TzTag; 3] = [
+    TzTag::Local,
+    TzTag::None,
+    TzTag::Utc,
+];
 const MIN_YEAR: i32 = 1997;
 const MAX_YEAR: i32 = 3000;
 
@@ -75,7 +80,20 @@ fn test_day_of_year_invalid() {
 }
 
 #[test]
-fn test_day_of_year_to_naive_date() {
+fn test_day_of_year_leap_year() {
+    for year in MIN_YEAR..MAX_YEAR {
+        assert_eq!(
+            is_leap_year(year),
+            DayOfYear::new(366).unwrap().to_date(year).is_ok()
+        );
+        if !is_leap_year(year) {
+            assert_eq!(DayOfYear::new(366).unwrap().to_date(year), Err(Error::OverflowNotLeapYear));
+        }
+    }
+}
+
+#[test]
+fn test_day_of_year_to_date() {
 
     use time::Date;
 
@@ -95,7 +113,7 @@ fn test_day_of_year_to_naive_date() {
 }
 
 #[test]
-fn test_day_of_year_to_naive_date_adapt() {
+fn test_day_of_year_to_date_adapt() {
     use time::{Date, Month};
 
     const WINDOW_SIZE_MAX: u16 = 31;
@@ -108,7 +126,7 @@ fn test_day_of_year_to_naive_date_adapt() {
                     DayOfYear::new(day).unwrap()
                     .to_date_adapt(
                         Date::from_calendar_date(year, Month::December, 31 - offset as u8).unwrap(),
-                        window
+                        window as u8
                     ),
                     Ok(Date::from_calendar_date(year + 1, Month::January, day as u8).unwrap())
                 );
@@ -122,7 +140,7 @@ fn test_day_of_year_to_naive_date_adapt() {
             let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1).unwrap()
             .to_date_adapt(
                 Date::from_calendar_date(year, Month::January, offset as u8).unwrap(),
-                window
+                window as u8
             );
 
             if is_leap_year(year - 1) {
@@ -136,7 +154,7 @@ fn test_day_of_year_to_naive_date_adapt() {
                     DayOfYear::new(day).unwrap()
                     .to_date_adapt(
                         Date::from_calendar_date(year, Month::January, offset as u8).unwrap(),
-                        window
+                        window as u8
                     ),
                     Ok(Date::from_ordinal_date(year - 1, day).unwrap())
                 );
@@ -148,6 +166,13 @@ fn test_day_of_year_to_naive_date_adapt() {
         (MIN_YEAR..(MAX_YEAR - 1)).for_each(|year| next_year_test(window, year));
         ((MIN_YEAR+1)..MAX_YEAR).for_each(|year| prev_year_test(window, year));
     }
+}
+
+#[test]
+fn test_tz_as_str() {
+    assert_eq!(TzTag::Local.as_str().as_deref(), Some("L"));
+    assert_eq!(TzTag::Utc.as_str().as_deref(), Some("Z"));
+    assert_eq!(TzTag::None.as_str(), None);
 }
 
 #[test]
@@ -164,7 +189,6 @@ fn test_short_date() {
     }
 }
 
-
 #[test]
 fn test_short_date_invalid() {
     for (month, len) in MONTH_LENS {
@@ -174,6 +198,151 @@ fn test_short_date_invalid() {
 
         for day in it {
             assert_eq!(ShortDate::new(month, day), Err(Error::InvalidDayForMonth(month, day)));
+        }
+    }
+}
+
+#[test]
+fn test_short_date_leap_year() {
+    for year in MIN_YEAR..MAX_YEAR {
+        assert_eq!(
+            is_leap_year(year),
+            ShortDate::new(Month::February, 29).unwrap().to_date(year).is_ok()
+        );
+        if !is_leap_year(year) {
+            assert_eq!(
+                ShortDate::new(Month::February, 29).unwrap().to_date(year),
+                Err(Error::OverflowNotLeapYear)
+            );
+        }
+    }
+}
+
+#[test]
+fn test_short_date_to_date_adapt() {
+    use time::{Date};
+
+    const WINDOW_SIZE_MAX: u16 = 31;
+
+    // When ticket is for the next year
+    let next_year_test = |window, year| {
+        for offset in 0..window {
+            for day in 1..window {
+                assert_eq!(
+                    ShortDate::new(Month::January, day as u8).unwrap()
+                    .to_date_adapt(
+                        Date::from_calendar_date(year, time::Month::December, 31 - offset as u8).unwrap(),
+                        window as u8
+                    ),
+                    Ok(Date::from_calendar_date(year + 1, time::Month::January, day as u8).unwrap())
+                );
+            }
+        }
+    };
+
+    // When ticket is for the previous year
+    let prev_year_test = |window, year| {
+        for offset in 1..window {
+            for day in (1..window).map(|x| 31 - x + 1) {
+                assert_eq!(
+                    ShortDate::new(Month::December, day as u8).unwrap()
+                    .to_date_adapt(
+                        Date::from_calendar_date(year, time::Month::January, offset as u8).unwrap(),
+                        window as u8
+                    ),
+                    Ok(Date::from_calendar_date(year - 1, time::Month::December, day as u8).unwrap())
+                );
+            }
+        }
+    };
+
+    for window in 1..WINDOW_SIZE_MAX {
+        (MIN_YEAR..(MAX_YEAR - 1)).for_each(|year| next_year_test(window, year));
+        ((MIN_YEAR+1)..MAX_YEAR).for_each(|year| prev_year_test(window, year));
+    }
+}
+
+#[test]
+fn test_short_date_to_string_from_string() {
+    for (month, len) in MONTH_LENS {
+        for day in 1..=len {
+            assert_eq!(
+                ShortDate::from_str(&ShortDate::new(month, day).unwrap().to_string()),
+                ShortDate::new(month, day),
+            );
+        }
+    }
+}
+
+#[test]
+fn test_time_valid() {
+    for hour in 0..24 {
+        for minute in 0..60 {
+
+            assert!(Time::from_short_str(&format!("{hour:02}{minute:02}")).is_ok());
+
+            for timezone in TIMEZONE_TAGS {
+                let tz_str = timezone.as_str();
+                if let Some(tz) = tz_str {
+                    assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{tz}")).is_ok());
+                    let tz = tz.to_lowercase();
+                    assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{tz}")).is_ok());
+                }
+
+                for second in std::iter::once(None).chain((0..60).map(Some)) {
+                    let time = Time::new(hour, minute, second, timezone);
+                    assert!(time.is_ok());
+                    assert_eq!(
+                        time.unwrap().to_time(),
+                        time::Time::from_hms(hour, minute, second.unwrap_or_default()).unwrap()
+                    );
+
+                    if let (Some(tz), Some(second)) = (tz_str, second) {
+                        assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{second:02}{tz}")).is_ok());
+                        let tz = tz.to_lowercase();
+                        assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{second:02}{tz}")).is_ok());
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_time_invalid() {
+    for hour in 24..u8::MAX {
+        for minute in 60..u8::MAX {
+            for timezone in TIMEZONE_TAGS {
+                for second in (60..u8::MAX).map(Some) {
+                    let time = Time::new(hour, minute, second, timezone);
+                    assert!(time.is_err());
+                }
+            }
+        }
+    }
+
+    for hour in 24..100 {
+        for minute in 60..100 {
+
+            assert!(Time::from_short_str(&format!("{hour:02}{minute:02}")).is_err());
+
+            for timezone in TIMEZONE_TAGS {
+
+                let tz_str = timezone.as_str();
+                if let Some(tz) = tz_str {
+                    assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{tz}")).is_err());
+                    let tz = tz.to_lowercase();
+                    assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{tz}")).is_err());
+                }
+
+                for second in (60..100).map(Some) {
+                    if let (Some(tz), Some(second)) = (tz_str, second) {
+                        assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{second:02}{tz}")).is_err());
+                        let tz = tz.to_lowercase();
+                        assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{second:02}{tz}")).is_err());
+                    }
+                }
+            }
         }
     }
 }
