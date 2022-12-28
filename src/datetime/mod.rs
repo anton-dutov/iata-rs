@@ -241,7 +241,7 @@ impl ShortDate {
 
         use Month::*;
 
-        Ok(NaiveDate::from_ymd(
+        let res = NaiveDate::from_ymd_opt(
             year,
             match self.month {
                 January   => 1,
@@ -257,7 +257,15 @@ impl ShortDate {
                 November  => 11,
                 December  => 12,
             },
-            self.day))
+            self.day
+        );
+
+        match res {
+            Some(res) => Ok(res),
+            // Since all months are correct, the thing could only error if
+            // we got 29th of February, when the year is not a leap one.
+            None => Err(Error::OverflowNotLeapYear(year as u32)),
+        }
     }
 
     pub fn to_naive_date_adapt_year<Tz: TimeZone>(&self, tz: Tz, days: u32) -> Result<NaiveDate, Error> {
