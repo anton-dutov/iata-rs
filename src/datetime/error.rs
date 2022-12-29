@@ -6,7 +6,7 @@ pub enum Error {
     InvalidDayOfYearRange(u16),
 
     #[error("INVALID_ADAPT_RANGE: {0:?}")]
-    InvalidAdaptRange(u16),
+    InvalidAdaptRange(u8),
 
     #[error("OVERFLOW_NOT_LEAP_YEAR")]
     OverflowNotLeapYear,

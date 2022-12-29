@@ -11,7 +11,7 @@ use time::{
     PrimitiveDateTime,
 };
 
-const MAX_ADAPT_DAYS: u16 = 31;
+const MAX_ADAPT_DAYS: u8 = 31;
 
 // pub struct DayOfMonth(u32);
 #[derive(Debug, Clone, PartialEq)]
@@ -45,14 +45,14 @@ impl DayOfYear {
         .map_err(|_| Error::OverflowNotLeapYear)
     }
 
-    pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u16) -> Result<Date, Error> {
+    pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
 
         self.to_date_adapt(now.date(), days)
     }
 
-    pub fn to_date_adapt(&self, for_date: Date, days: u16) -> Result<Date, Error> {
+    pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
 
         if days == 0 || days > MAX_ADAPT_DAYS {
             return Err(Error::InvalidAdaptRange(days))
@@ -60,12 +60,11 @@ impl DayOfYear {
 
         let mut year = for_date.year();
 
+        let days = days as u16;
         let upper_limit = 365 - days;
         if self.0 < days && for_date.ordinal() > upper_limit {
-            // Next year
             year += 1;
         } else if self.0 > upper_limit && for_date.ordinal() < days {
-            // Previous year
             year -= 1;
         }
 
@@ -256,7 +255,7 @@ impl ShortDate {
         }
     }
 
-    pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u16) -> Result<Date, Error> {
+    pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
 
@@ -264,7 +263,7 @@ impl ShortDate {
     }
 
 
-    pub fn to_date_adapt(&self, for_date: Date, days: u16) -> Result<Date, Error> {
+    pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
 
         use Month::*;
 
@@ -274,9 +273,13 @@ impl ShortDate {
 
         let mut year = for_date.year();
 
-        if self.month == December && self.day as u16 > (31 - days) {
+        if for_date.month() == time::Month::December && for_date.day() > 31 - days &&
+            self.month == January && self.day < days
+        {
             year += 1;
-        } else if self.month == December && self.day as u16 > days {
+        } else if for_date.month() == time::Month::January && for_date.day() < days &&
+            self.month == December && self.day > 31 - days
+        {
             year -= 1;
         }
 
@@ -337,16 +340,16 @@ pub struct Time {
 impl Time {
     pub fn new(hour: u8, minute: u8, second: Option<u8>, timezone: TzTag) -> Result<Self, Error> {
 
-        if hour >= 23 {
+        if hour > 23 {
             return Err(Error::InvalidHourValue(hour));
         }
 
-        if minute >= 59 {
+        if minute > 59 {
             return Err(Error::InvalidMinuteValue(minute));
         }
 
         if let Some(second) = second {
-            if second >= 59 {
+            if second > 59 {
                 return Err(Error::InvalidSecondValue(second));
             }
         }
@@ -522,14 +525,14 @@ impl ShortDateTime {
             .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
     }
 
-    pub fn to_datetime_adapt_year(&self, offset: UtcOffset, days: u16) -> Result<PrimitiveDateTime, Error> {
+    pub fn to_datetime_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date_adapt_year(offset, days)
             .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
 
     }
 
-    pub fn to_datetime_adapt(&self, for_date: Date, days: u16) -> Result<PrimitiveDateTime, Error> {
+    pub fn to_datetime_adapt(&self, for_date: Date, days: u8) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date_adapt(for_date, days)
             .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
