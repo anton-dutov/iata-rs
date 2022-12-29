@@ -410,7 +410,7 @@ impl ShortDate {
     /// `self.to_date_adapt(&today, days)`.
     ///
     /// For more information about algorithm and some examples, see
-    /// [`DayOfYear::to_naive_date_adapt()`].
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
@@ -670,7 +670,7 @@ impl Default for Time {
 //     }
 // }
 
-
+/// A [`ShortDate`] refined with a [`Time`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShortDateTime {
     pub date: ShortDate,
@@ -679,50 +679,88 @@ pub struct ShortDateTime {
 
 impl ShortDateTime {
 
+    /// Constructs a new instance of [`ShortDateTime`]. This function is equivalent
+    /// to simply constructing the value.
+    ///
+    /// ```
+    /// use iata::datetime::{ShortDateTime, ShortDate, Time, TzTag, Month};
+    ///
+    /// assert_eq!(
+    ///     ShortDateTime::new(
+    ///         ShortDate::new(Month::September, 1).unwrap(),
+    ///         Time::new(20, 45, Some(12), TzTag::None).unwrap(),
+    ///     ),
+    ///     ShortDateTime {
+    ///         date: ShortDate::new(Month::September, 1).unwrap(),
+    ///         time: Time::new(20, 45, Some(12), TzTag::None).unwrap(),
+    ///     },
+    /// );
+    /// ```
     pub fn new(date: ShortDate, time: Time) -> Self {
         Self { date, time }
     }
 
+    /// Constructs a new instance of [`ShortDateTime`], with an optional time. The
+    /// [`None`] value is mapped into `[Time::default()]`.
     pub fn new_time_opt(date: ShortDate, time: Option<Time>) -> Self {
         let time = time.unwrap_or_default();
 
         Self::new(date, time)
     }
 
+    /// Returns an immutable reference to the date component.
     pub fn date(&self) -> &ShortDate {
         &self.date
     }
 
+    /// A shortcut method that returns the month component of the date.
     pub fn month(&self) -> Month {
-        self.date.month
+        self.date.month()
     }
 
+    /// A shortcut method that returns the day component of the date.
     pub fn day(&self) -> u8 {
-        self.date.day
+        self.date.day()
     }
 
+    /// A shortcut method that returns the hour component of the time.
     pub fn hour(&self) -> u8 {
-        self.time.hour
+        self.time.hour()
     }
 
+    /// A shortcut method that returns the minute component of the time.
     pub fn minute(&self) -> u8 {
-        self.time.minute
+        self.time.minute()
     }
 
+    /// A shortcut method that returns the second component of the time.
     pub fn second(&self) -> Option<u8> {
         self.time.second
     }
 
+    /// A shortcut method that returns the timezone component of the time.
     pub fn timezone(&self) -> TzTag {
         self.time.timezone
     }
 
+    /// Converts the struct into [`time::PrimitiveDateTime`], using the supplied
+    /// year.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error only if `self.date.to_date()` fails. For more
+    /// information see [`ShortDate::to_date()`].
     pub fn to_datetime(&self, year: i32) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date(year)
             .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
     }
 
+    /// Tries to figure out what year the date-time belongs to. Equivalent to
+    /// `self.to_date_adapt(&today, days)`.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_datetime_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date_adapt_year(offset, days)
@@ -730,6 +768,10 @@ impl ShortDateTime {
 
     }
 
+    /// Tries to figure out what year the date-time belongs to.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_datetime_adapt(&self, for_date: Date, days: u8) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date_adapt(for_date, days)
