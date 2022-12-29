@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use iata::datetime::*;
+use rand::seq::IteratorRandom;
 
 const DAYS_IN_YEAR: u16 = 365;
 const MONTH_LENS: [(Month, u8); 12] = [
@@ -270,6 +271,46 @@ fn test_short_date_to_string_from_string() {
                 ShortDate::from_str(&ShortDate::new(month, day).unwrap().to_string()),
                 ShortDate::new(month, day),
             );
+        }
+    }
+}
+
+#[test]
+fn test_short_date_bad_strs() {
+    const MAX_SAMPLE_LEN: usize = 1_000_00;
+    use rand::{distributions::{Standard, DistString}, thread_rng};
+    let mut rng = thread_rng();
+    let mut s = String::with_capacity(MAX_SAMPLE_LEN);
+
+    for _ in 0..1000 {
+        s.clear();
+        let len = (0..MAX_SAMPLE_LEN).choose(&mut rng).unwrap();
+        Standard.append_string(&mut rng, &mut s, len);
+
+        if len != 5 {
+            assert!(ShortDate::from_str(&s).is_err());
+        }
+    }
+}
+
+#[test]
+fn test_time_bad_strs() {
+    const MAX_SAMPLE_LEN: usize = 1_000_00;
+    use rand::{distributions::{Standard, DistString}, thread_rng};
+    let mut rng = thread_rng();
+    let mut s = String::with_capacity(MAX_SAMPLE_LEN);
+
+    for _ in 0..1000 {
+        s.clear();
+        let len = (0..MAX_SAMPLE_LEN).choose(&mut rng).unwrap();
+        Standard.append_string(&mut rng, &mut s, len);
+
+        if len != 4 {
+            assert!(Time::from_short_str(&s).is_err());
+        }
+
+        if len != 5 || len != 7 {
+            assert!(Time::from_full_str(&s).is_err());
         }
     }
 }
