@@ -64,7 +64,7 @@ impl DayOfYear {
         self.0
     }
 
-    /// Converts this date into `NaiveDate` date type from `chrono`. If it turns out that
+    /// Converts this date into [`time::Date`]. If it turns out that
     /// `year` is not a leap year and the day is 366'th, [`Error::OverflowNotLeapYear`]
     /// is returned.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
@@ -76,7 +76,7 @@ impl DayOfYear {
     /// `self.to_naive_date_adapt(&today, days)`.
     ///
     /// For more information about algorithm and some examples, see
-    /// [`Self::to_naive_date_adapt()`].
+    /// [`Self::to_date_adapt()`].
     pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
@@ -98,7 +98,7 @@ impl DayOfYear {
     /// # Errors
     ///
     /// * If `days` is greater than 31 -- [`Error::InvalidAdaptRange`] is returned.
-    /// * If `self.ordinal()` is 366 and and the algorithm has decided that `self` belongs to
+    /// * If [`Self::ordinal()`] is 366 and and the algorithm has decided that `self` belongs to
     /// a non-leap year -- [`Error::OverflowNotLeapYear`] is returned.
     ///
     /// # Examples
@@ -115,22 +115,22 @@ impl DayOfYear {
     ///
     /// ```
     /// use iata::datetime::DayOfYear;
-    /// use chrono::{Utc, NaiveDate, TimeZone};
+    /// use time::macros::date;
     ///
-    /// let date = Utc.yo(2015, 364);
+    /// let date = date!(2015 - 364);
     ///
     /// // It's day `4`, `days` (the allowed range) is 7. The function will
     /// // assume it's the boarding pass for the next year.
     /// assert_eq!(
-    ///     DayOfYear::new(4).unwrap().to_naive_date_adapt(&date, 7),
-    ///     Ok(NaiveDate::from_yo_opt(2016, 4).unwrap()),
+    ///     DayOfYear::new(4).unwrap().to_date_adapt(date, 7),
+    ///     Ok(date!(2016 - 004)),
     /// );
     /// // It's day `4`, `days` (the allowed range) is 2. The function will
     /// // assume it's the boarding pass for this year, since the date is out
     /// // of the allowed range.
     /// assert_eq!(
-    ///     DayOfYear::new(4).unwrap().to_naive_date_adapt(&date, 2),
-    ///     Ok(NaiveDate::from_yo_opt(2015, 4).unwrap()),
+    ///     DayOfYear::new(4).unwrap().to_date_adapt(date, 2),
+    ///     Ok(date!(2015 - 004)),
     /// );
     /// ```
     ///
@@ -140,13 +140,13 @@ impl DayOfYear {
     ///
     /// ```
     /// use iata::datetime::DayOfYear;
-    /// use chrono::{Utc, NaiveDate, TimeZone};
+    /// use time::macros::date;
     ///
-    /// let date = Utc.yo(2015, 4);
+    /// let date = date!(2015 - 004);
     ///
     /// assert_eq!(
-    ///     DayOfYear::new(364).unwrap().to_naive_date_adapt(&date, 7),
-    ///     Ok(NaiveDate::from_yo_opt(2014, 364).unwrap()),
+    ///     DayOfYear::new(364).unwrap().to_date_adapt(date, 7),
+    ///     Ok(date!(2014 - 364)),
     /// );
     /// ```
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
@@ -369,12 +369,12 @@ impl ShortDate {
         self.month
     }
 
-    /// Converts the date into the [`NaiveDate`] type from `chrono`.
+    /// Converts the date into [`time::Date`].
     ///
     /// # Errors
     ///
     /// Returns [`Error::OverflowNotLeapYear`] if `year` is not a leap year and `self`
-    /// turns out to contain a date that is specific to a leap year.
+    /// turns out to contain a date that can exist only in a leap year.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
 
         use Month::*;
@@ -407,7 +407,7 @@ impl ShortDate {
     }
 
     /// Tries to figure out what year the date belongs to. Equivalent to
-    /// `self.to_naive_date_adapt(&today, days)`.
+    /// `self.to_date_adapt(&today, days)`.
     ///
     /// For more information about algorithm and some examples, see
     /// [`DayOfYear::to_naive_date_adapt()`].
@@ -421,7 +421,7 @@ impl ShortDate {
     /// Tries to figure out what year the date belongs to.
     ///
     /// For more information about algorithm and some examples, see
-    /// [`DayOfYear::to_naive_date_adapt()`].
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
 
         use Month::*;
@@ -499,12 +499,14 @@ pub struct Time {
 }
 
 impl Time {
-    // NOTE doesn't actually return errors on failure.
     /// Constructs the struct out of given values.
     ///
-    /// # Panics
-    /// Panics if `hours` is greater than 23, `minutes` is greater than 59 or `second` is isn't none
-    /// and greater than 59.
+    /// # Errors
+    ///
+    /// * Returns [`Error::InvalidHourValue`] if `hour` isn't in the `0..24` range.
+    /// * Returns [`Error::InvalidMinuteValue`] if `minute` isn't in the `0..60` range.
+    /// * Returns [`Error::InvalidSecondValue`] if `second` is [`Some`] and the value isn't
+    /// in the `0..60` range.
     pub fn new(hour: u8, minute: u8, second: Option<u8>, timezone: TzTag) -> Result<Self, Error> {
 
         if hour > 23 {
@@ -549,7 +551,7 @@ impl Time {
         self.timezone
     }
 
-    /// Converts this sturct into [`chrono::NaiveTime`].
+    /// Converts this sturct into [`time::Time`].
     pub fn to_time(&self) -> time::Time {
         time::Time::from_hms(self.hour, self.minute, self.second.unwrap_or_default()).unwrap()
     }
@@ -564,6 +566,8 @@ impl Time {
     ///   integer -- [`Error::InvalidHour`] is returned.
     /// * If the second two bytes of the string can't be parsed as a non-negative decimal
     ///   integer -- [`Error::InvalidMinute`] is returned.
+    /// * If the parsed values don't denote a valid time -- same errors as in [`Self::new()`] are
+    ///   returned.
     pub fn from_short_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 4 {
@@ -594,6 +598,8 @@ impl Time {
     ///   integer -- [`Error::InvalidHour`] is returned.
     /// * If the second two bytes of the string can't be parsed as a non-negative decimal
     ///   integer -- [`Error::InvalidMinute`] is returned.
+    /// * If the parsed values don't denote a valid time -- same errors as in [`Self::new()`] are
+    ///   returned.
     pub fn from_full_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 5 && s.len() != 7 {
