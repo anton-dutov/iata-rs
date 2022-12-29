@@ -99,33 +99,54 @@ impl Default for PaxType {
     fn default() -> Self { PaxType::None }
 }
 
-
-
-
 #[derive(Debug, Default, Clone)]
 pub struct Leg {
-    pub pnr: Option<String>,
-    pub src_airport: Option<String>,
-    pub dst_airport: Option<String>,
-    pub airline: Option<String>,
-    pub flight_number: Option<String>,
+    pnr: Option<String>,
+    src_airport: Option<String>,
+    dst_airport: Option<String>,
+    airline: Option<String>,
+    flight_number: Option<String>,
     pub flight_day:    Option<DayOfYear>,
     pub compartment: Option<char>,
-    pub seat: Option<String>,
+    seat: Option<String>,
     pub airline_num: Option<u16>,
     pub sequence: Option<u16>,
     pub pax_status: PaxStatus,
-    pub doc_number: Option<String>,
+    doc_number: Option<String>,
     // Selectee
     // marketing_airline
-    pub marketing_airline: Option<String>,
-    pub frequent_flyer_airline: Option<String>,
-    pub frequent_flyer_number: Option<String>,
+    marketing_airline: Option<String>,
+    frequent_flyer_airline: Option<String>,
+    frequent_flyer_number: Option<String>,
     pub fast_track: Option<char>,
     // ID/AD indicator
-    pub bag_allowance: Option<String>,
+    bag_allowance: Option<String>,
     // data
     pub var: Option<String>,
+}
+
+macro_rules! gen_get_set {
+    (get_set $method_name:ident for $field_name:ident with len $len:literal) => {
+        pub fn $method_name(&mut self, s: &str) -> BcbpResult<()> {
+            let s = s.trim();
+
+            if s.is_empty() {
+                self.$field_name = None;
+                return Ok(());
+            }
+
+            if s.len() > $len {
+                return Err(Error::MandatoryDataSize);
+            }
+
+            self.$field_name = Some(s.to_owned());
+            Ok(())
+        }
+
+        pub fn $field_name(&self) -> Option<&str> {
+            self.$field_name.as_deref()
+        }
+    };
 }
 
 impl Leg {
@@ -139,6 +160,18 @@ impl Leg {
 
         Ok(())
     }
+
+    gen_get_set!(get_set set_pnr for pnr with len 7);
+    gen_get_set!(get_set set_src_airport for src_airport with len 3);
+    gen_get_set!(get_set set_dst_airport for dst_airport with len 3);
+    gen_get_set!(get_set set_airline for airline with len 3);
+    gen_get_set!(get_set set_flight_number for flight_number with len 5);
+    gen_get_set!(get_set set_seat for seat with len 4);
+    gen_get_set!(get_set set_doc_number for doc_number with len 10);
+    gen_get_set!(get_set set_marketing_airline for marketing_airline with len 3);
+    gen_get_set!(get_set set_frequent_flyer_airline for frequent_flyer_airline with len 3);
+    gen_get_set!(get_set set_frequent_flyer_numbder for frequent_flyer_number with len 16);
+    gen_get_set!(get_set set_bag_allowance for bag_allowance with len 3);
 }
 
 #[derive(Debug, Default, Clone)]
