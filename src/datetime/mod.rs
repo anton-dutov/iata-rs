@@ -14,19 +14,42 @@ use time::{
 const MAX_ADAPT_DAYS: u8 = 31;
 
 // pub struct DayOfMonth(u32);
+
+/// Contains a number of some day in a year, which is an integer that ranges from
+/// 1 to 366 (inclusively). In some places this data structure is refered to as
+/// "ordinal".
+///
+/// This structure DOES NOT guarantee that it contains
+/// a day number valid for any year, since a year maybe contain one extra day.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DayOfYear(u16);
 // pub struct DayOfYearCheck(u32, u8);
 
-
- //
-
+/// Helper function to check if a given year is actually a leap one.
 pub fn is_leap_year(year: i32) -> bool {
     year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
 impl DayOfYear {
-
+    /// Constructs a new instance of [`DayOfYear`] based off the day number.
+    /// All numbers not within range `1..=366` are accepted.
+    ///
+    /// # Errors
+    /// If `day` is not from `1..=366` [`Error::InvalidDayOfYearRange`] is returned.
+    ///
+    /// # Exmaple
+    ///
+    /// ```
+    /// use iata::datetime::DayOfYear;
+    ///
+    /// // Ok
+    /// assert!(DayOfYear::new(366).is_ok());
+    /// assert!(DayOfYear::new(10).is_ok());
+    ///
+    /// // Not ok
+    /// assert!(DayOfYear::new(0).is_err());
+    /// assert!(DayOfYear::new(400).is_err());
+    /// ```
     pub fn new(day: u16) -> Result<Self, Error> {
 
         if day == 0 || day > 366 {
@@ -36,15 +59,24 @@ impl DayOfYear {
         Ok(Self(day))
     }
 
+    /// Returns the day value, wrapped by this struct.
     pub fn ordinal(&self) -> u16 {
         self.0
     }
 
+    /// Converts this date into [`time::Date`]. If it turns out that
+    /// `year` is not a leap year and the day is 366'th, [`Error::OverflowNotLeapYear`]
+    /// is returned.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
         Date::from_ordinal_date(year, self.0)
         .map_err(|_| Error::OverflowNotLeapYear)
     }
 
+    /// Tries to figure out what year the day stored in `self` belongs to. Equivalent to
+    /// `self.to_naive_date_adapt(&today, days)`.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`Self::to_date_adapt()`].
     pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
@@ -52,6 +84,71 @@ impl DayOfYear {
         self.to_date_adapt(now.date(), days)
     }
 
+    /// Tries to figure out what year the day stored in `self` belongs to. Here are the
+    /// techniques used by the function (here "today's date" is whatever is stored in `for_date`):
+    ///
+    /// 1. If `self.ordinal()` is more than `days` days earlier than today's date,
+    /// `self.ordinal()` is not more than `days` days later than the start of year -- it
+    /// is considered that `self` belongs to the next year.
+    /// 2. If `self.ordinal()` is less than `days` days away from year's end, today's date
+    /// is not more than `days` days later than the start of the year -- it is considered that
+    /// `self` belongs to the previous year.
+    /// 3. Otherwise we consider `self` belonging to the same year today's date belongs to.
+    ///
+    /// # Errors
+    ///
+    /// * If `days` is greater than 31 -- [`Error::InvalidAdaptRange`] is returned.
+    /// * If [`Self::ordinal()`] is 366 and and the algorithm has decided that `self` belongs to
+    /// a non-leap year -- [`Error::OverflowNotLeapYear`] is returned.
+    ///
+    /// # Examples
+    ///
+    /// Let's assume it's 364'th dat of 2015 and we are shown various boarding passes. The boarding passes
+    /// don't contain precise dates, instead they contain day of year only (i.e. only the ordinal day).
+    ///
+    /// it is also a common knowledge, that people can buy tickets with boarding that happens next year.
+    /// Because of that, day 4 doesn't mean it's for 2015. It might be a boarding pass for 2016! Strictly
+    /// speaking, we will never learn if it's true or not, but assuming that such boarding pass is for 2016
+    /// is a good educated guess.
+    ///
+    /// Of course, this rule shouldn't be abused and that's where the `days` arguments comes in.
+    ///
+    /// ```
+    /// use iata::datetime::DayOfYear;
+    /// use time::macros::date;
+    ///
+    /// let date = date!(2015 - 364);
+    ///
+    /// // It's day `4`, `days` (the allowed range) is 7. The function will
+    /// // assume it's the boarding pass for the next year.
+    /// assert_eq!(
+    ///     DayOfYear::new(4).unwrap().to_date_adapt(date, 7),
+    ///     Ok(date!(2016 - 004)),
+    /// );
+    /// // It's day `4`, `days` (the allowed range) is 2. The function will
+    /// // assume it's the boarding pass for this year, since the date is out
+    /// // of the allowed range.
+    /// assert_eq!(
+    ///     DayOfYear::new(4).unwrap().to_date_adapt(date, 2),
+    ///     Ok(date!(2015 - 004)),
+    /// );
+    /// ```
+    ///
+    /// Of course, the situation can be complete 180. It might be the 4th day of 2015 and
+    /// the boarding pass seems to contain the date far in the future. In that case it would
+    /// be good to assume that this boarding pass was actually for the past year!
+    ///
+    /// ```
+    /// use iata::datetime::DayOfYear;
+    /// use time::macros::date;
+    ///
+    /// let date = date!(2015 - 004);
+    ///
+    /// assert_eq!(
+    ///     DayOfYear::new(364).unwrap().to_date_adapt(date, 7),
+    ///     Ok(date!(2014 - 364)),
+    /// );
+    /// ```
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
 
         if days == 0 || days > MAX_ADAPT_DAYS {
@@ -80,15 +177,29 @@ impl Default for DayOfYear {
     fn default() -> Self { Self(1) }
 }
 
-
+/// Enum, which determines the timezone.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TzTag {
+    /// No timezone is specified.
     None,
+    /// The timezone is equivalent to the timezone of
+    /// the country the machine is located in.
     Local,
+    /// The timezone is UTC+0.
     Utc,
 }
 
 impl TzTag {
+    /// Converts the timezone tag into a borrowed string. Note that
+    /// [`TzTag::None`] is mapped into [`None`].
+    ///
+    /// ```
+    /// use iata::datetime::TzTag;
+    ///
+    /// assert_eq!(TzTag::Local.as_str(), Some("L"));
+    /// assert_eq!(TzTag::Utc.as_str(), Some("Z"));
+    /// assert_eq!(TzTag::None.as_str(), None);
+    /// ```
     pub fn as_str(self) -> Option<&'static str> {
         match self {
             TzTag::Local => Some("L"),
@@ -113,6 +224,7 @@ impl FromStr for TzTag {
     }
 }
 
+/// A basic enum that contains all 12 possible months.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Month {
     January,
@@ -130,6 +242,15 @@ pub enum Month {
 }
 
 impl Month {
+    /// Converts a month into a borrowed string. The returned string
+    /// is a 3 letter abbreviation of the month written in all uppercase
+    /// letters.
+    ///
+    /// ```
+    /// use iata::datetime::Month;
+    ///
+    /// assert_eq!(Month::January.as_str(), "JAN");
+    /// ```
     pub fn as_str(&self) -> &'static str {
 
         use Month::*;
@@ -179,7 +300,7 @@ impl FromStr for Month {
 
 
 
-
+/// A date without a year i.e. a date with a month and a day.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShortDate {
     month: Month,
@@ -187,6 +308,28 @@ pub struct ShortDate {
 }
 
 impl ShortDate {
+    /// Constructs a short day out of a month and a day. Note, that since
+    /// this date isn't aware of the year, it is completely legal to construct
+    /// 29th of Febuary.
+    ///
+    /// # Errors
+    /// All attempts to give the function an illegal day of month will result in
+    /// [`Error::InvalidDayForMonth`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use iata::datetime::{ShortDate, Month};
+    ///
+    /// // These are okay
+    /// assert!(ShortDate::new(Month::January, 31).is_ok());
+    /// assert!(ShortDate::new(Month::February, 28).is_ok());
+    /// assert!(ShortDate::new(Month::February, 29).is_ok());
+    ///
+    /// // These are not okay
+    /// assert!(ShortDate::new(Month::February, 30).is_err());
+    /// assert!(ShortDate::new(Month::January, 0).is_err());
+    /// ```
     pub fn new(month: Month, day: u8) -> Result<Self, Error> {
 
         use Month::*;
@@ -216,14 +359,22 @@ impl ShortDate {
         })
     }
 
+    /// Returns the day component of the date.
     pub fn day(&self) -> u8 {
         self.day
     }
 
+    /// Returns the month component of the date.
     pub fn month(&self) -> Month {
         self.month
     }
 
+    /// Converts the date into [`time::Date`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::OverflowNotLeapYear`] if `year` is not a leap year and `self`
+    /// turns out to contain a date that can exist only in a leap year.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
 
         use Month::*;
@@ -255,6 +406,11 @@ impl ShortDate {
         }
     }
 
+    /// Tries to figure out what year the date belongs to. Equivalent to
+    /// `self.to_date_adapt(&today, days)`.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
@@ -262,7 +418,10 @@ impl ShortDate {
         self.to_date_adapt(now.date(), days)
     }
 
-
+    /// Tries to figure out what year the date belongs to.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
 
         use Month::*;
@@ -329,6 +488,8 @@ impl FromStr for ShortDate {
 //     year: i32,
 // }
 
+/// A struct that stores HH:MM together with its timezone, optionally
+/// including the seconds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Time {
     hour: u8,
@@ -338,6 +499,14 @@ pub struct Time {
 }
 
 impl Time {
+    /// Constructs the struct out of given values.
+    ///
+    /// # Errors
+    ///
+    /// * Returns [`Error::InvalidHourValue`] if `hour` isn't in the `0..24` range.
+    /// * Returns [`Error::InvalidMinuteValue`] if `minute` isn't in the `0..60` range.
+    /// * Returns [`Error::InvalidSecondValue`] if `second` is [`Some`] and the value isn't
+    /// in the `0..60` range.
     pub fn new(hour: u8, minute: u8, second: Option<u8>, timezone: TzTag) -> Result<Self, Error> {
 
         if hour > 23 {
@@ -362,26 +531,43 @@ impl Time {
         })
     }
 
+    /// Returns the hour component.
     pub fn hour(&self) -> u8 {
         self.hour
     }
 
+    /// Returns the minute component.
     pub fn minute(&self) -> u8 {
         self.minute
     }
 
+    /// Returns the second component.
     pub fn second(&self) -> Option<u8> {
         self.second
     }
 
+    /// Returns the timezone.
     pub fn timezone(&self) -> TzTag {
         self.timezone
     }
 
+    /// Converts this sturct into [`time::Time`].
     pub fn to_time(&self) -> time::Time {
         time::Time::from_hms(self.hour, self.minute, self.second.unwrap_or_default()).unwrap()
     }
 
+    /// Parses the time from a "short string" -- a string of format
+    /// `HHMM`.
+    ///
+    /// # Errors
+    ///
+    /// * If the input string is not exactly of length 4 -- [`Error::InvalidInput`] is returned.
+    /// * If the first two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidHour`] is returned.
+    /// * If the second two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidMinute`] is returned.
+    /// * If the parsed values don't denote a valid time -- same errors as in [`Self::new()`] are
+    ///   returned.
     pub fn from_short_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 4 {
@@ -402,6 +588,18 @@ impl Time {
         Self::new(hour, minute, None, TzTag::None)
     }
 
+    /// Parses the time from a "short string" -- a string of format
+    /// `HHMMSST` or `HHMMT`.
+    ///
+    /// # Errors
+    ///
+    /// * If the input string is not exactly of length 5 or 7 -- [`Error::InvalidInput`] is returned.
+    /// * If the first two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidHour`] is returned.
+    /// * If the second two bytes of the string can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidMinute`] is returned.
+    /// * If the parsed values don't denote a valid time -- same errors as in [`Self::new()`] are
+    ///   returned.
     pub fn from_full_str(s: &str) -> Result<Self, Error> {
 
         if s.len() != 5 && s.len() != 7 {
@@ -472,7 +670,7 @@ impl Default for Time {
 //     }
 // }
 
-
+/// A [`ShortDate`] refined with a [`Time`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShortDateTime {
     pub date: ShortDate,
@@ -481,50 +679,88 @@ pub struct ShortDateTime {
 
 impl ShortDateTime {
 
+    /// Constructs a new instance of [`ShortDateTime`]. This function is equivalent
+    /// to simply constructing the value.
+    ///
+    /// ```
+    /// use iata::datetime::{ShortDateTime, ShortDate, Time, TzTag, Month};
+    ///
+    /// assert_eq!(
+    ///     ShortDateTime::new(
+    ///         ShortDate::new(Month::September, 1).unwrap(),
+    ///         Time::new(20, 45, Some(12), TzTag::None).unwrap(),
+    ///     ),
+    ///     ShortDateTime {
+    ///         date: ShortDate::new(Month::September, 1).unwrap(),
+    ///         time: Time::new(20, 45, Some(12), TzTag::None).unwrap(),
+    ///     },
+    /// );
+    /// ```
     pub fn new(date: ShortDate, time: Time) -> Self {
         Self { date, time }
     }
 
+    /// Constructs a new instance of [`ShortDateTime`], with an optional time. The
+    /// [`None`] value is mapped into `[Time::default()]`.
     pub fn new_time_opt(date: ShortDate, time: Option<Time>) -> Self {
         let time = time.unwrap_or_default();
 
         Self::new(date, time)
     }
 
+    /// Returns an immutable reference to the date component.
     pub fn date(&self) -> &ShortDate {
         &self.date
     }
 
+    /// A shortcut method that returns the month component of the date.
     pub fn month(&self) -> Month {
-        self.date.month
+        self.date.month()
     }
 
+    /// A shortcut method that returns the day component of the date.
     pub fn day(&self) -> u8 {
-        self.date.day
+        self.date.day()
     }
 
+    /// A shortcut method that returns the hour component of the time.
     pub fn hour(&self) -> u8 {
-        self.time.hour
+        self.time.hour()
     }
 
+    /// A shortcut method that returns the minute component of the time.
     pub fn minute(&self) -> u8 {
-        self.time.minute
+        self.time.minute()
     }
 
+    /// A shortcut method that returns the second component of the time.
     pub fn second(&self) -> Option<u8> {
         self.time.second
     }
 
+    /// A shortcut method that returns the timezone component of the time.
     pub fn timezone(&self) -> TzTag {
         self.time.timezone
     }
 
+    /// Converts the struct into [`time::PrimitiveDateTime`], using the supplied
+    /// year.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error only if `self.date.to_date()` fails. For more
+    /// information see [`ShortDate::to_date()`].
     pub fn to_datetime(&self, year: i32) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date(year)
             .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
     }
 
+    /// Tries to figure out what year the date-time belongs to. Equivalent to
+    /// `self.to_date_adapt(&today, days)`.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_datetime_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date_adapt_year(offset, days)
@@ -532,6 +768,10 @@ impl ShortDateTime {
 
     }
 
+    /// Tries to figure out what year the date-time belongs to.
+    ///
+    /// For more information about algorithm and some examples, see
+    /// [`DayOfYear::to_date_adapt()`].
     pub fn to_datetime_adapt(&self, for_date: Date, days: u8) -> Result<PrimitiveDateTime, Error> {
         self.date
             .to_date_adapt(for_date, days)

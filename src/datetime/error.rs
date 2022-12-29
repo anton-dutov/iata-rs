@@ -1,5 +1,6 @@
 use super::Month;
 
+/// The error type used by the datetime module.
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum Error {
     #[error("INVALID_DAY_OF_YEAR_RANGE: {0:?}")]
