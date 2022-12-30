@@ -207,13 +207,15 @@ mod samples {
         let flight_day_ordinal = flight_day.ordinal();
 
         let mut leg = Leg::default();
-        leg.set_pnr(to_utf8(&src_airport)).unwrap();
-        leg.set_src_airport(to_utf8(&dst_airport)).unwrap();
+        leg.set_pnr(to_utf8(&pnr)).unwrap();
+        leg.set_src_airport(to_utf8(&src_airport)).unwrap();
+        leg.set_dst_airport(to_utf8(&dst_airport)).unwrap();
         leg.set_airline(to_utf8(&airline)).unwrap();
         leg.set_flight_number(to_utf8(&flight_number)).unwrap();
         leg.compartment = Some(compartment as char);
         leg.set_seat(to_utf8(&seat)).unwrap();
         leg.sequence = Some(checking_sequence);
+        leg.flight_day = Some(flight_day);
         leg.pax_status = PaxStatus::from_char(pax_status as char);
         (
             leg,
