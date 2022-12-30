@@ -184,8 +184,8 @@ mod samples {
     }
 
     pub fn leg() -> (Leg, impl Iterator<Item = u8>) {
-        fn to_utf8(b: &[u8]) -> String {
-            from_utf8(b).unwrap().trim().to_owned()
+        fn to_utf8(b: &[u8]) -> &str {
+            from_utf8(b).unwrap().trim()
         }
 
         let pnr = pnr();
@@ -206,20 +206,19 @@ mod samples {
         };
         let flight_day_ordinal = flight_day.ordinal();
 
+        let mut leg = Leg::default();
+        leg.set_pnr(to_utf8(&pnr)).unwrap();
+        leg.set_src_airport(to_utf8(&src_airport)).unwrap();
+        leg.set_dst_airport(to_utf8(&dst_airport)).unwrap();
+        leg.set_airline(to_utf8(&airline)).unwrap();
+        leg.set_flight_number(to_utf8(&flight_number)).unwrap();
+        leg.compartment = Some(compartment as char);
+        leg.set_seat(to_utf8(&seat)).unwrap();
+        leg.sequence = Some(checking_sequence);
+        leg.flight_day = Some(flight_day);
+        leg.pax_status = PaxStatus::from_char(pax_status as char);
         (
-            Leg {
-                pnr: Some(to_utf8(&pnr)),
-                src_airport: Some(to_utf8(&src_airport)),
-                dst_airport: Some(to_utf8(&dst_airport)),
-                airline: Some(to_utf8(&airline)),
-                flight_number: Some(to_utf8(&flight_number)),
-                flight_day: Some(flight_day),
-                compartment: Some(compartment as char),
-                seat: Some(to_utf8(&seat)),
-                sequence: Some(checking_sequence),
-                pax_status: PaxStatus::from_char(pax_status as char),
-                ..Default::default()
-            },
+            leg,
             std::iter::empty()
                 .chain(pnr)
                 .chain(src_airport)
@@ -333,16 +332,16 @@ fn minimal() {
             assert_eq!(bcbp.ticket_flag,   None);
             assert_eq!(bcbp.version,       None);
 
-            assert_eq!(bcbp.legs[0].pnr.as_deref(),           Some(from_utf8(*pnr).unwrap().trim()));
-            assert_eq!(bcbp.legs[0].src_airport.as_deref(),   None);
-            assert_eq!(bcbp.legs[0].dst_airport.as_deref(),   None);
-            assert_eq!(bcbp.legs[0].airline.as_deref(),       None);
-            assert_eq!(bcbp.legs[0].flight_number.as_deref(), None);
-            assert_eq!(bcbp.legs[0].flight_day,               None);
-            assert_eq!(bcbp.legs[0].compartment,              None);
-            assert_eq!(bcbp.legs[0].seat,                     None);
-            assert_eq!(bcbp.legs[0].sequence,                 None);
-            assert_eq!(bcbp.legs[0].pax_status,               PaxStatus::None);
+            assert_eq!(bcbp.legs[0].pnr(),           Some(from_utf8(*pnr).unwrap().trim()));
+            assert_eq!(bcbp.legs[0].src_airport(),   None);
+            assert_eq!(bcbp.legs[0].dst_airport(),   None);
+            assert_eq!(bcbp.legs[0].airline(),       None);
+            assert_eq!(bcbp.legs[0].flight_number(), None);
+            assert_eq!(bcbp.legs[0].flight_day,      None);
+            assert_eq!(bcbp.legs[0].compartment,     None);
+            assert_eq!(bcbp.legs[0].seat(),          None);
+            assert_eq!(bcbp.legs[0].sequence,        None);
+            assert_eq!(bcbp.legs[0].pax_status,      PaxStatus::None);
 
             assert_eq!(bcbp.build(Mode::Tolerant).unwrap(), src);
         }
@@ -385,16 +384,16 @@ fn mandatory_legs() {
                 assert_eq!(bcbp.version,       None);
 
                 for i in 0..leg_count {
-                    assert_eq!(bcbp.legs[i].pnr,            legs[i].pnr);
-                    assert_eq!(bcbp.legs[i].src_airport,    legs[i].src_airport);
-                    assert_eq!(bcbp.legs[i].dst_airport,    legs[i].dst_airport);
-                    assert_eq!(bcbp.legs[i].airline,        legs[i].airline);
-                    assert_eq!(bcbp.legs[i].flight_number,  legs[i].flight_number);
-                    assert_eq!(bcbp.legs[i].flight_day,     legs[i].flight_day);
-                    assert_eq!(bcbp.legs[i].compartment,    legs[i].compartment);
-                    assert_eq!(bcbp.legs[i].seat,           legs[i].seat);
-                    assert_eq!(bcbp.legs[i].sequence,       legs[i].sequence);
-                    assert_eq!(bcbp.legs[i].pax_status,     legs[i].pax_status);
+                    assert_eq!(bcbp.legs[i].pnr(),            legs[i].pnr());
+                    assert_eq!(bcbp.legs[i].src_airport(),    legs[i].src_airport());
+                    assert_eq!(bcbp.legs[i].dst_airport(),    legs[i].dst_airport());
+                    assert_eq!(bcbp.legs[i].airline(),        legs[i].airline());
+                    assert_eq!(bcbp.legs[i].flight_number(),  legs[i].flight_number());
+                    assert_eq!(bcbp.legs[i].flight_day,       legs[i].flight_day);
+                    assert_eq!(bcbp.legs[i].compartment,      legs[i].compartment);
+                    assert_eq!(bcbp.legs[i].seat(),           legs[i].seat());
+                    assert_eq!(bcbp.legs[i].sequence,         legs[i].sequence);
+                    assert_eq!(bcbp.legs[i].pax_status,       legs[i].pax_status);
                 }
 
                 assert_eq!(bcbp.build(Mode::Tolerant).expect("Building shouldn't fail"), src);
@@ -428,16 +427,16 @@ fn home_printed_1_1() {
     assert_eq!(bcbp.doc_type,                        Some('B'));
     assert_eq!(bcbp.boardingpass_airline.as_deref(), Some("LH"));
 
-    assert_eq!(bcbp.legs[0].pnr.as_deref(),           Some("8OQ6FU"));
-    assert_eq!(bcbp.legs[0].src_airport.as_deref(),   Some("FRA"));
-    assert_eq!(bcbp.legs[0].dst_airport.as_deref(),   Some("RLG"));
-    assert_eq!(bcbp.legs[0].airline.as_deref(),       Some("LH"));
-    assert_eq!(bcbp.legs[0].flight_number.as_deref(), Some("4010"));
-    assert_eq!(bcbp.legs[0].flight_day,               Some(DayOfYear::new(12).unwrap()));
-    assert_eq!(bcbp.legs[0].compartment,              Some('C'));
-    assert_eq!(bcbp.legs[0].seat.as_deref(),          Some("4D"));
-    assert_eq!(bcbp.legs[0].sequence,                 Some(1));
-    assert_eq!(bcbp.legs[0].pax_status,               PaxStatus::Other('3'));
+    assert_eq!(bcbp.legs[0].pnr().as_deref(),           Some("8OQ6FU"));
+    assert_eq!(bcbp.legs[0].src_airport().as_deref(),   Some("FRA"));
+    assert_eq!(bcbp.legs[0].dst_airport().as_deref(),   Some("RLG"));
+    assert_eq!(bcbp.legs[0].airline().as_deref(),       Some("LH"));
+    assert_eq!(bcbp.legs[0].flight_number().as_deref(), Some("4010"));
+    assert_eq!(bcbp.legs[0].flight_day,                 Some(DayOfYear::new(12).unwrap()));
+    assert_eq!(bcbp.legs[0].compartment,                Some('C'));
+    assert_eq!(bcbp.legs[0].seat().as_deref(),          Some("4D"));
+    assert_eq!(bcbp.legs[0].sequence,                   Some(1));
+    assert_eq!(bcbp.legs[0].pax_status,                 PaxStatus::Other('3'));
 }
 
 // B.1.2 KL – Home Printed Boarding Pass
@@ -494,24 +493,24 @@ fn conditional3() {
     assert!(bcbp.name_first == Some("SMITH".to_string()));
     assert!(bcbp.ticket_flag == Some('E'));
 
-    assert_eq!(bcbp.legs[0].pnr.as_deref(),           Some("ABCDEF"));
-    assert_eq!(bcbp.legs[0].src_airport.as_deref(),   Some("JFK"));
-    assert_eq!(bcbp.legs[0].dst_airport.as_deref(),   Some("SVO"));
-    assert_eq!(bcbp.legs[0].airline.as_deref(),       Some("SK"));
-    assert_eq!(bcbp.legs[0].flight_number.as_deref(), Some("1234"));
-    assert_eq!(bcbp.legs[0].flight_day,               Some(DayOfYear::new(123).unwrap()));
+    assert_eq!(bcbp.legs[0].pnr(),           Some("ABCDEF"));
+    assert_eq!(bcbp.legs[0].src_airport(),   Some("JFK"));
+    assert_eq!(bcbp.legs[0].dst_airport(),   Some("SVO"));
+    assert_eq!(bcbp.legs[0].airline(),       Some("SK"));
+    assert_eq!(bcbp.legs[0].flight_number(), Some("1234"));
+    assert_eq!(bcbp.legs[0].flight_day,      Some(DayOfYear::new(123).unwrap()));
 
-    assert_eq!(bcbp.legs[1].pnr.as_deref(),           Some("ABCDEF"));
-    assert_eq!(bcbp.legs[1].src_airport.as_deref(),   Some("SVO"));
-    assert_eq!(bcbp.legs[1].dst_airport.as_deref(),   Some("FRA"));
-    assert_eq!(bcbp.legs[1].airline.as_deref(),       Some("SU"));
-    assert_eq!(bcbp.legs[1].flight_number.as_deref(), Some("5678"));
-    assert_eq!(bcbp.legs[1].flight_day,               Some(DayOfYear::new(135).unwrap()));
+    assert_eq!(bcbp.legs[1].pnr(),           Some("ABCDEF"));
+    assert_eq!(bcbp.legs[1].src_airport(),   Some("SVO"));
+    assert_eq!(bcbp.legs[1].dst_airport(),   Some("FRA"));
+    assert_eq!(bcbp.legs[1].airline(),       Some("SU"));
+    assert_eq!(bcbp.legs[1].flight_number(), Some("5678"));
+    assert_eq!(bcbp.legs[1].flight_day,      Some(DayOfYear::new(135).unwrap()));
 
-    assert_eq!(bcbp.legs[2].pnr.as_deref(),           Some("ABCDEF"));
-    assert_eq!(bcbp.legs[2].src_airport.as_deref(),   Some("FRA"));
-    assert_eq!(bcbp.legs[2].dst_airport.as_deref(),   Some("JFK"));
-    assert_eq!(bcbp.legs[2].airline.as_deref(),       Some("SU"));
-    assert_eq!(bcbp.legs[2].flight_number.as_deref(), Some("9876"));
-    assert_eq!(bcbp.legs[2].flight_day,               Some(DayOfYear::new(231).unwrap()));
+    assert_eq!(bcbp.legs[2].pnr(),           Some("ABCDEF"));
+    assert_eq!(bcbp.legs[2].src_airport(),   Some("FRA"));
+    assert_eq!(bcbp.legs[2].dst_airport(),   Some("JFK"));
+    assert_eq!(bcbp.legs[2].airline(),       Some("SU"));
+    assert_eq!(bcbp.legs[2].flight_number(), Some("9876"));
+    assert_eq!(bcbp.legs[2].flight_day,      Some(DayOfYear::new(231).unwrap()));
 }
