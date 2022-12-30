@@ -24,6 +24,8 @@ pub enum Error {
     AlphaNumExpected,
     /// Returned when alphabetic characters were expected
     AlphaExpected,
+    /// Returned when digit charaacters were expected
+    DigitsExpected,
 }
 
 #[derive(Debug, PartialEq)]

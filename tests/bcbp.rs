@@ -425,7 +425,7 @@ fn home_printed_1_1() {
     assert_eq!(bcbp.boardingpass_src,                Some('W'));
     assert_eq!(bcbp.boardingpass_issued,             Some(6012));
     assert_eq!(bcbp.doc_type,                        Some('B'));
-    assert_eq!(bcbp.boardingpass_airline.as_deref(), Some("LH"));
+    assert_eq!(bcbp.boardingpass_airline(),          Some("LH"));
 
     assert_eq!(bcbp.legs[0].pnr().as_deref(),           Some("8OQ6FU"));
     assert_eq!(bcbp.legs[0].src_airport().as_deref(),   Some("FRA"));

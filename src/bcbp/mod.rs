@@ -136,17 +136,27 @@ macro_rules! gen_get_set {
         gen_get_set!(get_set $method_name($preprocess) for $field_name with len 1..=$to);
     };
     (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $from:literal..=$to:literal) => {
+        gen_get_set!(
+            get_set $method_name($preprocess) for $field_name
+            with |s: &str| {
+                if !($from..=$to).contains(&s.len()) {
+                    Err(Error::MandatoryDataSize)
+                } else {
+                    Ok(())
+                }
+            }
+        );
+    };
+    (get_set $method_name:ident($preprocess:path) for $field_name:ident with $verify:expr) => {
         pub fn $method_name(&mut self, s: &str) -> BcbpResult<()> {
             let s = $preprocess(s);
 
-            if s.len() == 0 {
+            if s.is_empty() {
                 self.$field_name = None;
                 return Ok(());
             }
 
-            if !($from..=$to).contains(&s.len()) {
-                return Err(Error::MandatoryDataSize);
-            }
+            $verify(s)?;
 
             self.$field_name = Some(s.to_owned());
             Ok(())
@@ -194,16 +204,33 @@ pub struct Bcbp {
     pub name_first: Option<String>,
     pub ticket_flag: Option<char>,
     pub legs: Vec<Leg>,
-    pub bagtags: Vec<String>,
+    bagtag1: Option<String>,
+    bagtag2: Option<String>,
+    bagtag3: Option<String>,
     pub checkin_src: Option<char>,
     pub boardingpass_src: Option<char>,
     pub boardingpass_issued: Option<u16>,
-    pub boardingpass_airline: Option<String>,
+    boardingpass_airline: Option<String>,
     pub security_data_type: Option<char>,
     pub security_data: Option<String>,
 }
 
 impl Bcbp {
+    fn verify_bagtag(s: &str) -> BcbpResult<()> {
+        if s.len() != 13 {
+            Err(Error::MandatoryDataSize)
+        } else if !s.as_bytes().iter().all(u8::is_ascii_digit) {
+            Err(Error::DigitsExpected)
+        } else {
+            Ok(())
+        }
+    }
+
+    gen_get_set!(get_set set_bagtag1(str::trim) for bagtag1 with Bcbp::verify_bagtag);
+    gen_get_set!(get_set set_bagtag2(str::trim) for bagtag2 with Bcbp::verify_bagtag);
+    gen_get_set!(get_set set_bagtag3(str::trim) for bagtag3 with Bcbp::verify_bagtag);
+    gen_get_set!(get_set set_boradingpass_airline for boardingpass_airline with len 3);
+
     pub fn name(&self) -> String {
         let mut tmp = if let Some(ref name_first) = self.name_first {
             format!("{}/{}", self.name_last, name_first)
@@ -394,9 +421,11 @@ impl Bcbp {
                             .fetch_str_opt(Field::DateOfIssueOfBoardingPass)?
                             .map(|x| u16_from_str_force(x, 10));
                         bcbp.doc_type = unique_chunk.fetch_char_opt(Field::DocumentType)?;
-                        bcbp.boardingpass_airline = unique_chunk
+                        bcbp.set_boradingpass_airline(
+                            unique_chunk
                             .fetch_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?
-                            .map(|x| x.trim().into());
+                            .unwrap_or("")
+                        )?;
 
                         // let _ = unique_chunk
                         //     .fetch_str_opt(Field::BaggageTagLicensePlateNumbers)?
