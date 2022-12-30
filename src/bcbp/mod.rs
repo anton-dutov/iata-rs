@@ -126,16 +126,25 @@ pub struct Leg {
 }
 
 macro_rules! gen_get_set {
-    (get_set $method_name:ident for $field_name:ident with len $len:literal) => {
+    (get_set $method_name:ident for $field_name:ident with len $to:literal) => {
+        gen_get_set!(get_set $method_name for $field_name with len 1..=$to);
+    };
+    (get_set $method_name:ident for $field_name:ident with len $from:literal..=$to:literal) => {
+        gen_get_set!(get_set $method_name(str::trim) for $field_name with len $from..=$to);
+    };
+    (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $to:literal) => {
+        gen_get_set!(get_set $method_name($preprocess) for $field_name with len 1..=$to);
+    };
+    (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $from:literal..=$to:literal) => {
         pub fn $method_name(&mut self, s: &str) -> BcbpResult<()> {
-            let s = s.trim();
+            let s = $preprocess(s);
 
-            if s.is_empty() {
+            if s.len() == 0 {
                 self.$field_name = None;
                 return Ok(());
             }
 
-            if s.len() > $len {
+            if !($from..=$to).contains(&s.len()) {
                 return Err(Error::MandatoryDataSize);
             }
 
@@ -166,12 +175,14 @@ impl Leg {
     gen_get_set!(get_set set_dst_airport for dst_airport with len 3);
     gen_get_set!(get_set set_airline for airline with len 3);
     gen_get_set!(get_set set_flight_number for flight_number with len 5);
-    gen_get_set!(get_set set_seat for seat with len 4);
+    gen_get_set!(get_set set_seat(Leg::seat_preprocess) for seat with len 4);
     gen_get_set!(get_set set_doc_number for doc_number with len 10);
     gen_get_set!(get_set set_marketing_airline for marketing_airline with len 3);
     gen_get_set!(get_set set_frequent_flyer_airline for frequent_flyer_airline with len 3);
     gen_get_set!(get_set set_frequent_flyer_numbder for frequent_flyer_number with len 16);
     gen_get_set!(get_set set_bag_allowance for bag_allowance with len 3);
+
+    fn seat_preprocess(s: &str) -> &str { s.trim().trim_start_matches('0') }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -228,7 +239,15 @@ impl Bcbp {
         for leg in &self.legs {
 
             let seat = if let Some(ref seat) = leg.seat {
-                format!("{:0>4}", seat)
+                let is_normal_seat =
+                    seat.as_bytes().first()
+                    .unwrap() // The code excludes containing empty string
+                    .is_ascii_digit();
+                if is_normal_seat {
+                    format!("{seat:0>4}")
+                } else {
+                    format!("{seat:<4}")
+                }
             } else {
                 "    ".into()
             };
@@ -308,40 +327,11 @@ impl Bcbp {
             let mut leg = Leg::default();
 
             // Mandatory fields common to all legs.
-            let pnr = chunk.fetch_str(Field::OperatingCarrierPnrCode)?.trim();
-            leg.pnr = if !pnr.is_empty() {
-                Some(pnr.into())
-            } else {
-                None
-            };
-
-            let src_airport = chunk.fetch_str(Field::FromCityAirportCode)?.trim();
-            leg.src_airport = if !src_airport.is_empty() {
-                Some(src_airport.into())
-            } else {
-                None
-            };
-
-            let dst_airport = chunk.fetch_str(Field::ToCityAirportCode)?.trim();
-            leg.dst_airport = if !dst_airport.is_empty() {
-                Some(dst_airport.into())
-            } else {
-                None
-            };
-
-            let airline = chunk.fetch_str(Field::OperatingCarrierDesignator)?.trim();
-            leg.airline = if !airline.is_empty() {
-                Some(airline.into())
-            } else {
-                None
-            };
-
-            let flight_number = chunk.fetch_str(Field::FlightNumber)?.trim();
-            leg.flight_number = if !flight_number.is_empty() {
-                Some(flight_number.into())
-            } else {
-                None
-            };
+            leg.set_pnr(chunk.fetch_str(Field::OperatingCarrierPnrCode)?)?;
+            leg.set_src_airport(chunk.fetch_str(Field::FromCityAirportCode)?)?;
+            leg.set_dst_airport(chunk.fetch_str(Field::ToCityAirportCode)?)?;
+            leg.set_airline(chunk.fetch_str(Field::OperatingCarrierDesignator)?)?;
+            leg.set_flight_number(chunk.fetch_str(Field::FlightNumber)?)?;
 
             let flight_day = chunk.fetch_str(Field::DateOfFlight)?;
             leg.flight_day = if !flight_day.trim().is_empty() {
@@ -354,7 +344,8 @@ impl Bcbp {
                 ' ' => None,
                 c   => Some(c),
             };
-            leg.seat          = seat_opt(chunk.fetch_str(Field::SeatNumber)?.trim());
+
+            leg.set_seat(chunk.fetch_str(Field::SeatNumber)?)?;
             leg.sequence      = u32_from_str_opt(chunk
                 .fetch_str(Field::CheckInSequenceNumber)?, 10);
 
@@ -436,27 +427,38 @@ impl Bcbp {
                     leg.airline_num = repeated_chunk
                         .fetch_str_opt(Field::AirlineNumericCode)?
                         .map(|x| u16_from_str_force(x.trim(), 10));
-                    leg.doc_number = repeated_chunk
+
+                    leg.set_doc_number(
+                        repeated_chunk
                         .fetch_str_opt(Field::DocumentFormSerialNumber)?
-                        .map(|x| x.trim().into());
+                        .unwrap_or("")
+                    )?;
                     let _selectee_indicator =
                         repeated_chunk.fetch_char_opt(Field::SelecteeIndicator)?;
                     let _international_document_verification = repeated_chunk
                         .fetch_char_opt(Field::InternationalDocumentVerification)?;
-                    leg.marketing_airline = repeated_chunk
+                    leg.set_marketing_airline(
+                        repeated_chunk
                         .fetch_str_opt(Field::MarketingCarrierDesignator)?
-                        .map(|x| x.trim().into());
-                    leg.frequent_flyer_airline = repeated_chunk
+                        .unwrap_or("")
+                    )?;
+                    leg.set_frequent_flyer_airline(
+                        repeated_chunk
                         .fetch_str_opt(Field::FrequentFlyerAirlineDesignator)?
-                        .map(|x| x.trim().into());
-                    leg.frequent_flyer_number = repeated_chunk
+                        .unwrap_or("")
+                    )?;
+                    leg.set_frequent_flyer_numbder(
+                        repeated_chunk
                         .fetch_str_opt(Field::FrequentFlyerNumber)?
-                        .map(Into::into);
+                        .unwrap_or("")
+                    )?;
                     let _id_ad_indicator =
                         repeated_chunk.fetch_char_opt(Field::IdAdIndicator)?;
-                    leg.bag_allowance = repeated_chunk
+                    leg.set_bag_allowance(
+                        repeated_chunk
                         .fetch_str_opt(Field::FreeBaggageAllowance)?
-                        .map(|x| x.trim().into());
+                        .unwrap_or("")
+                    )?;
                     leg.fast_track = repeated_chunk.fetch_char_opt(Field::FastTrack)?;
                 }
             }
@@ -512,16 +514,6 @@ fn u16_from_str_force(src: &str, radix: u32) -> u16 {
 
 fn u32_from_str_opt(src: &str, radix: u32) -> Option<u16> {
     u16::from_str_radix(src.trim().trim_start_matches('0'), radix).ok()
-}
-
-fn seat_opt(seat: &str) -> Option<String> {
-    let tmp = seat.trim().trim_start_matches('0').to_string();
-
-    if tmp.len() <= 1 {
-        None
-    } else {
-        Some(tmp)
-    }
 }
 
 
