@@ -6,11 +6,10 @@ use iata::datetime::DayOfYear;
 mod samples {
     use std::{str::from_utf8, num::NonZeroU16};
 
-    use rand::{prelude, seq::{IteratorRandom, SliceRandom}, distributions::Standard, thread_rng};
+    use rand::{seq::{IteratorRandom, SliceRandom}, thread_rng};
     use iata::{datetime::DayOfYear, bcbp::{Leg, PaxStatus}};
 
     pub static BASE_BCBP: &str = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100";
-
     pub struct NameSample<'a> {
         pub fullname: &'a [u8; 20],
         pub lastname: &'a [u8],
@@ -120,14 +119,44 @@ mod samples {
         b"LOL",
     ];
 
+    fn numeric() -> u8 {
+        let mut rng = thread_rng();
+
+        (b'0'..=b'9').choose(&mut rng).unwrap()
+    }
+
+    fn alphanum() -> u8 {
+        let mut rng = thread_rng();
+
+        (b'0'..=b'9').chain(b'a'..=b'z').chain(b'A'..=b'Z').choose(&mut rng).unwrap()
+    }
+
+    fn optional_alphanum() -> u8 {
+        let mut rng = thread_rng();
+
+        *[
+            alphanum(),
+            b' ',
+        ].choose(&mut rng).unwrap()
+    }
+
+    fn optional_str<const N: usize>(f: impl FnMut(usize) -> u8) -> [u8; N] {
+        let mut rng = thread_rng();
+
+        *[
+            std::array::from_fn(f),
+            [b' '; N],
+        ].choose(&mut rng).unwrap()
+    }
+
     fn flight_number() -> [u8; 5] {
         let mut rng = thread_rng();
 
         [
-            (b'0'..=b'9').choose(&mut rng).unwrap(),
-            (b'0'..=b'9').choose(&mut rng).unwrap(),
-            (b'0'..=b'9').choose(&mut rng).unwrap(),
-            (b'0'..=b'9').choose(&mut rng).unwrap(),
+            numeric(),
+            numeric(),
+            numeric(),
+            numeric(),
             (b'A'..=b'Z').chain(std::iter::once(b' ')).choose(&mut rng).unwrap(),
         ]
     }
@@ -160,9 +189,7 @@ mod samples {
     }
 
     fn pax_status() -> u8 {
-        let mut rng = thread_rng();
-
-        (b'0'..=b'9').choose(&mut rng).unwrap()
+        numeric()
     }
 
     fn pnr() -> [u8; 7] {
@@ -183,7 +210,7 @@ mod samples {
         **AIRLINES.choose(&mut rng).unwrap()
     }
 
-    pub fn leg() -> (Leg, impl Iterator<Item = u8>) {
+    pub fn simple_leg() -> (Leg, impl Iterator<Item = u8>) {
         fn to_utf8(b: &[u8]) -> &str {
             from_utf8(b).unwrap().trim()
         }
@@ -233,6 +260,74 @@ mod samples {
                 .chain(*b"00")
         )
     }
+
+    fn bcbp_version_number() -> u8 {
+        numeric()
+    }
+
+    fn pax_type() -> u8 { optional_alphanum() }
+
+    fn source_of_checking() -> u8 { optional_alphanum() }
+
+    fn source_of_boardpass() -> u8 { optional_alphanum() }
+
+    fn boardingpass_issued() -> [u8; 4] {
+        let mut rng = thread_rng();
+        let fmt: [u8; 4] = format!(
+            "{:40}",
+            (0u16..=9999u16).choose(&mut rng).unwrap()
+        )[0..4].as_bytes().try_into().unwrap();
+
+        *[
+            fmt,
+            *b"    ",
+        ].choose(&mut rng).unwrap()
+    }
+
+    fn document_type() -> u8 { optional_alphanum() }
+
+    fn airline_num() -> [u8; 3] {
+        let mut rng = thread_rng();
+        let fmt: [u8; 3] = format!(
+            "{:30}",
+            (0u16..=999u16).choose(&mut rng).unwrap()
+        )[0..4].as_bytes().try_into().unwrap();
+
+        *[
+            fmt,
+            *b"   ",
+        ].choose(&mut rng).unwrap()
+    }
+
+    fn doc_number() -> [u8; 10] {
+        let mut rng = thread_rng();
+
+        *[
+            [
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+                numeric(),
+            ],
+            *b"          ",
+        ].choose(&mut rng).unwrap()
+    }
+
+    fn selectee_indicator() -> u8 { optional_alphanum() }
+
+    fn international_document_verification() -> u8 { optional_alphanum() }
+
+    fn frequent_flyer_airline() -> [u8; 16] { optional_str(|_| numeric()) }
+
+    fn id_ad_indicator() -> u8 { optional_alphanum() }
+
+    fn free_baggage_allowance() -> [u8; 3] { optional_str(|_| alphanum()) }
 }
 
 fn ascii_bytes() -> impl Iterator<Item = u8> {
@@ -363,7 +458,7 @@ fn mandatory_legs() {
 
                 let mut legs = Vec::with_capacity(leg_count);
                 for _ in 0..leg_count {
-                    let (leg, stream) = samples::leg();
+                    let (leg, stream) = samples::simple_leg();
                     src.extend(stream);
 
                     legs.push(leg);
@@ -445,7 +540,7 @@ fn home_printed_1_2() {
     let src = "M1TEST/PETER          E24Z5RN AMSBRUKL 1733 019M008A0001 316>503  W0D0742497067621";
     let tmp = Bcbp::from(src);
 
-    println!("RES {:?}", tmp);
+    println!("RES {:#?}", tmp);
 
     assert!(tmp.is_ok());
 
