@@ -1,15 +1,7 @@
 use std::str;
 use std::u32;
 
-pub use chrono::{
-    Offset,
-    TimeZone,
-    NaiveDate,
-};
-
-use chrono::{Datelike};
-
-
+use time::Date;
 
 mod error;
 pub mod field;
@@ -109,34 +101,74 @@ impl Default for PaxType {
     fn default() -> Self { PaxType::None }
 }
 
-
-
-
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub struct Leg {
-    pub pnr: Option<String>,
-    pub src_airport: Option<String>,
-    pub dst_airport: Option<String>,
-    pub airline: Option<String>,
-    pub flight_number: Option<String>,
+    pnr: Option<String>,
+    src_airport: Option<String>,
+    dst_airport: Option<String>,
+    airline: Option<String>,
+    flight_number: Option<String>,
     pub flight_day:    Option<DayOfYear>,
     pub compartment: Option<char>,
-    pub seat: Option<String>,
+    seat: Option<String>,
     pub airline_num: Option<u16>,
     pub sequence: Option<u16>,
     pub pax_status: PaxStatus,
-    pub doc_number: Option<String>,
+    doc_number: Option<String>,
     // Selectee
     // marketing_airline
-    pub marketing_airline: Option<String>,
-    pub frequent_flyer_airline: Option<String>,
-    pub frequent_flyer_number: Option<String>,
+    marketing_airline: Option<String>,
+    frequent_flyer_airline: Option<String>,
+    frequent_flyer_number: Option<String>,
     pub fast_track: Option<char>,
     // ID/AD indicator
-    pub bag_allowance: Option<String>,
+    bag_allowance: Option<String>,
     // data
     pub var: Option<String>,
+}
+
+macro_rules! gen_get_set {
+    (get_set $method_name:ident for $field_name:ident with len $to:literal) => {
+        gen_get_set!(get_set $method_name for $field_name with len 1..=$to);
+    };
+    (get_set $method_name:ident for $field_name:ident with len $from:literal..=$to:literal) => {
+        gen_get_set!(get_set $method_name(str::trim) for $field_name with len $from..=$to);
+    };
+    (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $to:literal) => {
+        gen_get_set!(get_set $method_name($preprocess) for $field_name with len 1..=$to);
+    };
+    (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $from:literal..=$to:literal) => {
+        gen_get_set!(
+            get_set $method_name($preprocess) for $field_name
+            with |s: &str| {
+                if !($from..=$to).contains(&s.len()) {
+                    Err(Error::MandatoryDataSize)
+                } else {
+                    Ok(())
+                }
+            }
+        );
+    };
+    (get_set $method_name:ident($preprocess:path) for $field_name:ident with $verify:expr) => {
+        pub fn $method_name(&mut self, s: &str) -> BcbpResult<()> {
+            let s = $preprocess(s);
+
+            if s.is_empty() {
+                self.$field_name = None;
+                return Ok(());
+            }
+
+            $verify(s)?;
+
+            self.$field_name = Some(s.to_owned());
+            Ok(())
+        }
+
+        pub fn $field_name(&self) -> Option<&str> {
+            self.$field_name.as_deref()
+        }
+    };
 }
 
 impl Leg {
@@ -145,11 +177,25 @@ impl Leg {
         self.flight_day.as_ref()
     }
 
-    pub fn set_flight_date(&mut self, date: NaiveDate) -> std::result::Result<(), DateError> {
+    pub fn set_flight_date(&mut self, date: Date) -> std::result::Result<(), DateError> {
         self.flight_day = Some(DayOfYear::new(date.ordinal())?);
 
         Ok(())
     }
+
+    gen_get_set!(get_set set_pnr for pnr with len 7);
+    gen_get_set!(get_set set_src_airport for src_airport with len 3);
+    gen_get_set!(get_set set_dst_airport for dst_airport with len 3);
+    gen_get_set!(get_set set_airline for airline with len 3);
+    gen_get_set!(get_set set_flight_number for flight_number with len 5);
+    gen_get_set!(get_set set_seat(Leg::seat_preprocess) for seat with len 4);
+    gen_get_set!(get_set set_doc_number for doc_number with len 10);
+    gen_get_set!(get_set set_marketing_airline for marketing_airline with len 3);
+    gen_get_set!(get_set set_frequent_flyer_airline for frequent_flyer_airline with len 3);
+    gen_get_set!(get_set set_frequent_flyer_numbder for frequent_flyer_number with len 16);
+    gen_get_set!(get_set set_bag_allowance for bag_allowance with len 3);
+
+    fn seat_preprocess(s: &str) -> &str { s.trim().trim_start_matches('0') }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -162,16 +208,33 @@ pub struct Bcbp {
     pub name_first: Option<String>,
     pub ticket_flag: Option<char>,
     pub legs: Vec<Leg>,
-    pub bagtags: Vec<String>,
+    bagtag1: Option<String>,
+    bagtag2: Option<String>,
+    bagtag3: Option<String>,
     pub checkin_src: Option<char>,
     pub boardingpass_src: Option<char>,
     pub boardingpass_issued: Option<u16>,
-    pub boardingpass_airline: Option<String>,
+    boardingpass_airline: Option<String>,
     pub security_data_type: Option<char>,
     pub security_data: Option<String>,
 }
 
 impl Bcbp {
+    fn verify_bagtag(s: &str) -> BcbpResult<()> {
+        if s.len() != 13 {
+            Err(Error::MandatoryDataSize)
+        } else if !s.as_bytes().iter().all(u8::is_ascii_digit) {
+            Err(Error::DigitsExpected)
+        } else {
+            Ok(())
+        }
+    }
+
+    gen_get_set!(get_set set_bagtag1(str::trim) for bagtag1 with Bcbp::verify_bagtag);
+    gen_get_set!(get_set set_bagtag2(str::trim) for bagtag2 with Bcbp::verify_bagtag);
+    gen_get_set!(get_set set_bagtag3(str::trim) for bagtag3 with Bcbp::verify_bagtag);
+    gen_get_set!(get_set set_boradingpass_airline for boardingpass_airline with len 3);
+
     pub fn name(&self) -> String {
         let mut tmp = if let Some(ref name_first) = self.name_first {
             format!("{}/{}", self.name_last, name_first)
@@ -207,7 +270,15 @@ impl Bcbp {
         for leg in &self.legs {
 
             let seat = if let Some(ref seat) = leg.seat {
-                format!("{:0>4}", seat)
+                let is_normal_seat =
+                    seat.as_bytes().first()
+                    .unwrap() // The code excludes containing empty string
+                    .is_ascii_digit();
+                if is_normal_seat {
+                    format!("{seat:0>4}")
+                } else {
+                    format!("{seat:<4}")
+                }
             } else {
                 "    ".into()
             };
@@ -287,44 +358,15 @@ impl Bcbp {
             let mut leg = Leg::default();
 
             // Mandatory fields common to all legs.
-            let pnr = chunk.fetch_str(Field::OperatingCarrierPnrCode)?.trim();
-            leg.pnr = if !pnr.is_empty() {
-                Some(pnr.into())
-            } else {
-                None
-            };
-
-            let src_airport = chunk.fetch_str(Field::FromCityAirportCode)?.trim();
-            leg.src_airport = if !src_airport.is_empty() {
-                Some(src_airport.into())
-            } else {
-                None
-            };
-
-            let dst_airport = chunk.fetch_str(Field::ToCityAirportCode)?.trim();
-            leg.dst_airport = if !dst_airport.is_empty() {
-                Some(dst_airport.into())
-            } else {
-                None
-            };
-
-            let airline = chunk.fetch_str(Field::OperatingCarrierDesignator)?.trim();
-            leg.airline = if !airline.is_empty() {
-                Some(airline.into())
-            } else {
-                None
-            };
-
-            let flight_number = chunk.fetch_str(Field::FlightNumber)?.trim();
-            leg.flight_number = if !flight_number.is_empty() {
-                Some(flight_number.into())
-            } else {
-                None
-            };
+            leg.set_pnr(chunk.fetch_str(Field::OperatingCarrierPnrCode)?)?;
+            leg.set_src_airport(chunk.fetch_str(Field::FromCityAirportCode)?)?;
+            leg.set_dst_airport(chunk.fetch_str(Field::ToCityAirportCode)?)?;
+            leg.set_airline(chunk.fetch_str(Field::OperatingCarrierDesignator)?)?;
+            leg.set_flight_number(chunk.fetch_str(Field::FlightNumber)?)?;
 
             let flight_day = chunk.fetch_str(Field::DateOfFlight)?;
             leg.flight_day = if !flight_day.trim().is_empty() {
-                Some(DayOfYear::new(u16_from_str_force(flight_day, 10) as u32).unwrap())
+                Some(DayOfYear::new(u16_from_str_force(flight_day, 10)).unwrap())
             } else {
                 None
             };
@@ -333,7 +375,8 @@ impl Bcbp {
                 ' ' => None,
                 c   => Some(c),
             };
-            leg.seat          = seat_opt(chunk.fetch_str(Field::SeatNumber)?.trim());
+
+            leg.set_seat(chunk.fetch_str(Field::SeatNumber)?)?;
             leg.sequence      = u32_from_str_opt(chunk
                 .fetch_str(Field::CheckInSequenceNumber)?, 10);
 
@@ -382,9 +425,11 @@ impl Bcbp {
                             .fetch_str_opt(Field::DateOfIssueOfBoardingPass)?
                             .map(|x| u16_from_str_force(x, 10));
                         bcbp.doc_type = unique_chunk.fetch_char_opt(Field::DocumentType)?;
-                        bcbp.boardingpass_airline = unique_chunk
+                        bcbp.set_boradingpass_airline(
+                            unique_chunk
                             .fetch_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?
-                            .map(|x| x.trim().into());
+                            .unwrap_or("")
+                        )?;
 
                         // let _ = unique_chunk
                         //     .fetch_str_opt(Field::BaggageTagLicensePlateNumbers)?
@@ -415,27 +460,38 @@ impl Bcbp {
                     leg.airline_num = repeated_chunk
                         .fetch_str_opt(Field::AirlineNumericCode)?
                         .map(|x| u16_from_str_force(x.trim(), 10));
-                    leg.doc_number = repeated_chunk
+
+                    leg.set_doc_number(
+                        repeated_chunk
                         .fetch_str_opt(Field::DocumentFormSerialNumber)?
-                        .map(|x| x.trim().into());
+                        .unwrap_or("")
+                    )?;
                     let _selectee_indicator =
                         repeated_chunk.fetch_char_opt(Field::SelecteeIndicator)?;
                     let _international_document_verification = repeated_chunk
                         .fetch_char_opt(Field::InternationalDocumentVerification)?;
-                    leg.marketing_airline = repeated_chunk
+                    leg.set_marketing_airline(
+                        repeated_chunk
                         .fetch_str_opt(Field::MarketingCarrierDesignator)?
-                        .map(|x| x.trim().into());
-                    leg.frequent_flyer_airline = repeated_chunk
+                        .unwrap_or("")
+                    )?;
+                    leg.set_frequent_flyer_airline(
+                        repeated_chunk
                         .fetch_str_opt(Field::FrequentFlyerAirlineDesignator)?
-                        .map(|x| x.trim().into());
-                    leg.frequent_flyer_number = repeated_chunk
+                        .unwrap_or("")
+                    )?;
+                    leg.set_frequent_flyer_numbder(
+                        repeated_chunk
                         .fetch_str_opt(Field::FrequentFlyerNumber)?
-                        .map(Into::into);
+                        .unwrap_or("")
+                    )?;
                     let _id_ad_indicator =
                         repeated_chunk.fetch_char_opt(Field::IdAdIndicator)?;
-                    leg.bag_allowance = repeated_chunk
+                    leg.set_bag_allowance(
+                        repeated_chunk
                         .fetch_str_opt(Field::FreeBaggageAllowance)?
-                        .map(|x| x.trim().into());
+                        .unwrap_or("")
+                    )?;
                     leg.fast_track = repeated_chunk.fetch_char_opt(Field::FastTrack)?;
                 }
             }
@@ -491,16 +547,6 @@ fn u16_from_str_force(src: &str, radix: u32) -> u16 {
 
 fn u32_from_str_opt(src: &str, radix: u32) -> Option<u16> {
     u16::from_str_radix(src.trim().trim_start_matches('0'), radix).ok()
-}
-
-fn seat_opt(seat: &str) -> Option<String> {
-    let tmp = seat.trim().trim_start_matches('0').to_string();
-
-    if tmp.len() <= 1 {
-        None
-    } else {
-        Some(tmp)
-    }
 }
 
 

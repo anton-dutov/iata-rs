@@ -20,6 +20,12 @@ pub enum Error {
     InvalidCharacters,
     /// After parsing, additional characters remain.
     TrailingData,
+    /// Returned when alpha-numeric characters were expected
+    AlphaNumExpected,
+    /// Returned when alphabetic characters were expected
+    AlphaExpected,
+    /// Returned when digit charaacters were expected
+    DigitsExpected,
 }
 
 #[derive(Debug, PartialEq)]
