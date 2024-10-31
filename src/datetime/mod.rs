@@ -17,6 +17,7 @@ const MAX_ADAPT_DAYS: u32 = 31;
 
 // pub struct DayOfMonth(u32);
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub struct DayOfYear(u32);
 // pub struct DayOfYearCheck(u32, u8);
 
