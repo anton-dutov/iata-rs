@@ -27,6 +27,7 @@ pub enum Mode {
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub enum PaxStatus {
     None,
     NotCheckedIn,
@@ -64,6 +65,7 @@ impl Default for PaxStatus {
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub enum PaxType {
     None,            // ' '
     Adult,           // 0
@@ -101,6 +103,7 @@ impl Default for PaxType {
 
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub struct Leg {
     pub pnr: String,
     pub src_airport: String,
@@ -149,6 +152,7 @@ impl Leg {
 }
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub struct BCBP {
     pub version: Option<char>,
     pub pax_type: PaxType,
