@@ -446,55 +446,55 @@ impl Bcbp {
                         //             field::Field::SecondNonConsecutiveBaggageTagLicensePlateNumbers,
                         //         )?
                         //        .map(|x| x.trim().into());
+                        }
                     }
                 }
-            }
 
-            // Conditional fields common to all legs.
-            if conditional_item.len() > 0 {
-                let len = conditional_item
-                    .fetch_usize(Field::FieldSizeOfStructuredMessageRepeated, 16)?;
-                if len > 0 {
-                    let mut repeated_chunk = conditional_item.fetch_chunk(len)?;
+                // Conditional fields common to all legs.
+                if conditional_item.len() > 0 {
+                    let len = conditional_item
+                        .fetch_usize(Field::FieldSizeOfStructuredMessageRepeated, 16)?;
+                    if len > 0 {
+                        let mut repeated_chunk = conditional_item.fetch_chunk(len)?;
 
-                    leg.airline_num = repeated_chunk
-                        .fetch_str_opt(Field::AirlineNumericCode)?
-                        .map(|x| u16_from_str_force(x.trim(), 10));
+                        leg.airline_num = repeated_chunk
+                            .fetch_str_opt(Field::AirlineNumericCode)?
+                            .map(|x| u16_from_str_force(x.trim(), 10));
 
-                    leg.set_doc_number(
-                        repeated_chunk
-                        .fetch_str_opt(Field::DocumentFormSerialNumber)?
-                        .unwrap_or("")
-                    )?;
-                    let _selectee_indicator =
-                        repeated_chunk.fetch_char_opt(Field::SelecteeIndicator)?;
-                    let _international_document_verification = repeated_chunk
-                        .fetch_char_opt(Field::InternationalDocumentVerification)?;
-                    leg.set_marketing_airline(
-                        repeated_chunk
-                        .fetch_str_opt(Field::MarketingCarrierDesignator)?
-                        .unwrap_or("")
-                    )?;
-                    leg.set_frequent_flyer_airline(
-                        repeated_chunk
-                        .fetch_str_opt(Field::FrequentFlyerAirlineDesignator)?
-                        .unwrap_or("")
-                    )?;
-                    leg.set_frequent_flyer_numbder(
-                        repeated_chunk
-                        .fetch_str_opt(Field::FrequentFlyerNumber)?
-                        .unwrap_or("")
-                    )?;
-                    let _id_ad_indicator =
-                        repeated_chunk.fetch_char_opt(Field::IdAdIndicator)?;
-                    leg.set_bag_allowance(
-                        repeated_chunk
-                        .fetch_str_opt(Field::FreeBaggageAllowance)?
-                        .unwrap_or("")
-                    )?;
-                    leg.fast_track = repeated_chunk.fetch_char_opt(Field::FastTrack)?;
+                        leg.set_doc_number(
+                            repeated_chunk
+                            .fetch_str_opt(Field::DocumentFormSerialNumber)?
+                            .unwrap_or("")
+                        )?;
+                        let _selectee_indicator =
+                            repeated_chunk.fetch_char_opt(Field::SelecteeIndicator)?;
+                        let _international_document_verification = repeated_chunk
+                            .fetch_char_opt(Field::InternationalDocumentVerification)?;
+                        leg.set_marketing_airline(
+                            repeated_chunk
+                            .fetch_str_opt(Field::MarketingCarrierDesignator)?
+                            .unwrap_or("")
+                        )?;
+                        leg.set_frequent_flyer_airline(
+                            repeated_chunk
+                            .fetch_str_opt(Field::FrequentFlyerAirlineDesignator)?
+                            .unwrap_or("")
+                        )?;
+                        leg.set_frequent_flyer_numbder(
+                            repeated_chunk
+                            .fetch_str_opt(Field::FrequentFlyerNumber)?
+                            .unwrap_or("")
+                        )?;
+                        let _id_ad_indicator =
+                            repeated_chunk.fetch_char_opt(Field::IdAdIndicator)?;
+                        leg.set_bag_allowance(
+                            repeated_chunk
+                            .fetch_str_opt(Field::FreeBaggageAllowance)?
+                            .unwrap_or("")
+                        )?;
+                        leg.fast_track = repeated_chunk.fetch_char_opt(Field::FastTrack)?;
+                    }
                 }
-            }
 
                 // Any remaining text is ascribed to airline use.
                 if conditional_item.len() > 0 {
