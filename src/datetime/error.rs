@@ -12,7 +12,7 @@ pub enum Error {
     #[error("OVERFLOW_NOT_LEAP_YEAR")]
     OverflowNotLeapYear,
 
-    #[error("INVALID_DAY_FOR_MONTH: {:?} {0:?}")]
+    #[error("INVALID_DAY_FOR_MONTH: {0:?} {1:?}")]
     InvalidDayForMonth(Month, u8),
 
     #[error("INVALID_FORMAT: {0:?}")]

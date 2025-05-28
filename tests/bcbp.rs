@@ -6,7 +6,7 @@ use iata::datetime::DayOfYear;
 mod samples {
     use std::{str::from_utf8, num::NonZeroU16};
 
-    use rand::{prelude, seq::{IteratorRandom, SliceRandom}, distributions::Standard, thread_rng};
+    use rand::{seq::{IteratorRandom, IndexedRandom}};
     use iata::{datetime::DayOfYear, bcbp::{Leg, PaxStatus}};
 
     pub static BASE_BCBP: &str = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100";
@@ -121,7 +121,7 @@ mod samples {
     ];
 
     fn flight_number() -> [u8; 5] {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         [
             (b'0'..=b'9').choose(&mut rng).unwrap(),
@@ -133,20 +133,20 @@ mod samples {
     }
 
     fn compartment() -> u8 {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         (b'A'..=b'Z').choose(&mut rng).unwrap()
     }
 
     fn day_of_year() -> DayOfYear {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let x = (1..=365).choose(&mut rng).unwrap();
 
         DayOfYear::new(x).unwrap()
     }
 
     fn seat() -> [u8; 4] {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         *[
             [
@@ -160,25 +160,25 @@ mod samples {
     }
 
     fn pax_status() -> u8 {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         (b'0'..=b'9').choose(&mut rng).unwrap()
     }
 
     fn pnr() -> [u8; 7] {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         **PNRS.choose(&mut rng).unwrap()
     }
 
     fn airport() -> [u8; 3] {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         **AIRPORTS.choose(&mut rng).unwrap()
     }
 
     fn airline() -> [u8; 3] {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         **AIRLINES.choose(&mut rng).unwrap()
     }
@@ -302,8 +302,6 @@ fn error_data_size() {
 // Minimal
 #[test]
 fn minimal() {
-    use itertools::iproduct;
-
     for name in samples::NAMES {
         for pnr in samples::PNRS {
             let mut src = Vec::with_capacity(60);
