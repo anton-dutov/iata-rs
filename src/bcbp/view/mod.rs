@@ -7,19 +7,28 @@ mod parser;
 
 use crate::bcbp::error::BcbpResult;
 
-use parser::from_str;
+use parser::decode_bcbp_view;
 
 // Copyright (C) 2018 Martin Mroz
 //
 // This software may be modified and distributed under the terms
 // of the MIT license.  See the LICENSE file for details.
 
-#[derive(Clone,Eq,PartialEq,Hash,Debug,Default)]
+/// Decoding mode to use when parsing a boarding pass string.
+pub enum BcbpViewDecodingMode {
+    /// No modifications to the input string
+    Plain,
+
+    /// Trim string fields
+    Trim,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct Leg<'a> {
     pub(crate) pnr: &'a str,
     pub(crate) src_airport: &'a str,
     pub(crate) dst_airport: &'a str,
-    pub(crate) airline: &'a str,
+    pub(crate) operating_carrier: &'a str,
     pub(crate) flight_number: &'a str,
     pub(crate) flight_day: &'a str,
     pub(crate) compartment: char,
@@ -30,7 +39,7 @@ pub struct Leg<'a> {
     pub(crate) document_form_serial_number: Option<&'a str>,
     pub(crate) selectee_indicator: Option<char>,
     pub(crate) international_document_verification: Option<char>,
-    pub(crate) marketing_carrier_designator: Option<&'a str>,
+    pub(crate) marketing_carrier: Option<&'a str>,
     pub(crate) frequent_flyer_airline: Option<&'a str>,
     pub(crate) frequent_flyer_number: Option<&'a str>,
     pub(crate) id_ad_indicator: Option<char>,
@@ -40,7 +49,6 @@ pub struct Leg<'a> {
 }
 
 impl Leg<'_> {
-
     /// An alphanumeric string of up to 6 characters, left-aligned, space-padded.
     /// This is the Passenger Name Record used to identify the booking
     /// in the reservation system of the operating carrier.
@@ -67,8 +75,8 @@ impl Leg<'_> {
     /// are permitted and the string is left-justified and space padded.
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
-    pub fn marketing_carrier_designator(&self) -> Option<&str> {
-        self.marketing_carrier_designator.as_deref()
+    pub fn marketing_carrier(&self) -> Option<&str> {
+        self.marketing_carrier.as_deref()
     }
 
     /// Airline code associated with the frequent flyer number.
@@ -100,8 +108,8 @@ impl Leg<'_> {
     /// are permitted and the string is left-justified and space padded.
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
-    pub fn airline(&self) -> &str {
-        &self.airline
+    pub fn operating_carrier(&self) -> &str {
+        &self.operating_carrier
     }
 
     /// A flight number comprised of four numeric characters followed by an optional
@@ -196,31 +204,28 @@ impl Leg<'_> {
     pub fn airline_individual_use(&self) -> Option<&str> {
         self.airline_individual_use.as_deref()
     }
-
 }
 
-#[derive(Clone,Eq,PartialEq,Hash,Debug,Default)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct SecurityData {
-    pub(crate) type_of_security_data: Option<char>,
-    pub(crate) security_data: Option<String>,
+    pub(crate) kind: char,
+    pub(crate) data: Option<String>,
 }
 
 impl SecurityData {
-
     /// Vendor specific flag indicating the type of the security data which follows.
-    pub fn type_of_security_data(&self) -> Option<char> {
-        self.type_of_security_data
+    pub fn kind(&self) -> char {
+        self.kind
     }
 
     /// Security data used to verify the boarding pass was not tampered with.
-    pub fn security_data(&self) -> Option<&str> {
-        self.security_data.as_deref()
+    pub fn data(&self) -> Option<&str> {
+        self.data.as_deref()
     }
-
 }
 
-#[derive(Clone,Eq,PartialEq,Hash,Debug,Default)]
-pub struct Bcbp<'a> {
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
+pub struct BcbpView<'a> {
     pub(crate) pax_name: &'a str,
     pub(crate) eticket_flag: char,
     pub(crate) pax_description: Option<char>,
@@ -229,17 +234,16 @@ pub struct Bcbp<'a> {
     pub(crate) date_of_issue_of_boarding_pass: Option<&'a str>,
     pub(crate) doc_type: Option<char>,
     pub(crate) airline_designator_of_boarding_pass_issuer: Option<&'a str>,
-    pub(crate) baggage_tag_license_plate_numbers: Option<&'a str>,
-    pub(crate) first_non_consecutive_baggage_tag_license_plate_numbers: Option<&'a str>,
-    pub(crate) second_non_consecutive_baggage_tag_license_plate_numbers: Option<&'a str>,
+    pub(crate) baggage_tags: Option<&'a str>,
+    pub(crate) nonconsecutive_baggage_tags1: Option<&'a str>,
+    pub(crate) nonconsecutive_baggage_tags2: Option<&'a str>,
     pub(crate) legs: Vec<Leg<'a>>,
     pub(crate) security_data: SecurityData,
 }
 
-impl<'a> Bcbp<'a> {
-
-    pub fn from(input: &'a str) -> BcbpResult<Bcbp<'a>> {
-        from_str(input)
+impl<'a> BcbpView<'a> {
+    pub fn decode_bcbp(input: &'a str) -> BcbpResult<BcbpView<'a>> {
+        decode_bcbp_view(input)
     }
 
     /// All legs encoded into the boarding pass.
@@ -323,21 +327,21 @@ impl<'a> Bcbp<'a> {
     ///    5...10: carrier initial tag number with leading zeroes.
     ///   11...13: number of consecutive bags (up to 999).
     /// Spaces indicate the field is not set.
-    pub fn baggage_tag_license_plate_numbers(&self) -> Option<&str> {
-        self.baggage_tag_license_plate_numbers.as_deref()
+    pub fn baggage_tags(&self) -> Option<&str> {
+        self.baggage_tags.as_deref()
     }
 
     /// This field allows carriers who handle non-sequential bags to include a second set of them
-    /// in the boarding pass data in in the same format as `baggage_tag_license_plate_numbers`.
+    /// in the boarding pass data in in the same format as `baggage_tags`.
     /// Spaces indicate the field is not set.
-    pub fn first_non_consecutive_baggage_tag_license_plate_numbers(&self) -> Option<&str> {
-        self.first_non_consecutive_baggage_tag_license_plate_numbers.as_deref()
+    pub fn nonconsecutive_baggage_tags1(&self) -> Option<&str> {
+        self.nonconsecutive_baggage_tags1.as_deref()
     }
 
     /// This field allows carriers who handle non-sequential bags to include a third set of them
-    /// in the boarding pass data in in the same format as `baggage_tag_license_plate_numbers`.
+    /// in the boarding pass data in in the same format as `baggage_tags`.
     /// Spaces indicate the field is not set.
-    pub fn second_non_consecutive_baggage_tag_license_plate_numbers(&self) -> Option<&str> {
-        self.second_non_consecutive_baggage_tag_license_plate_numbers.as_deref()
+    pub fn nonconsecutive_baggage_tags2(&self) -> Option<&str> {
+        self.nonconsecutive_baggage_tags2.as_deref()
     }
 }

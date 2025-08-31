@@ -1,6 +1,6 @@
 [package]
-name    = "iata"
-version = "0.8.0-rc.1"
+name = "iata"
+version = "0.9.0-alpha.1"
 edition = "2021"
 authors = [
     "Anton Dutov <anton.dutov@gmail.com>",
@@ -8,21 +8,21 @@ authors = [
     "Martin Mroz <martinmroz@gmail.com>",
     "Innokentii Meleshchenko <innocentuslime.help@gmail.com>",
 ]
-readme      = "README.md"
-license     = "MIT"
+readme = "README.md"
+license = "MIT"
 description = "Some implementations of IATA resolutions"
-repository  = "https://github.com/anton-dutov/iata-rs"
-categories  = ["parser-implementations"]
-keywords    = ["iata", "bcbp"]
+repository = "https://github.com/anton-dutov/iata-rs"
+categories = ["parser-implementations"]
+keywords = ["iata", "bcbp"]
 
 [features]
 with-serde = ["serde"]
 
 [dependencies]
-log       = "0.4"
+tracing = "0.1"
 thiserror = "2"
-time      = "0.3"
-serde     = { version = "1", optional = true, features = ["derive"]}
+time = "0.3"
+serde = { version = "1", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
