@@ -24,6 +24,9 @@ pub enum Error {
     #[error("field size exceeded")]
     FieldSizeExceeded,
 
+    #[error("field size exceeded: {0}, max {1}")]
+    FieldSizeExceeded2(Field, usize),
+
     // --- условные данные ---
     #[error("conditional data is present but not allowed here")]
     ConditionalData,

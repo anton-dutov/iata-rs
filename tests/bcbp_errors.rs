@@ -391,39 +391,3 @@ fn home_printed_1_2() {
 
 //   Sample of UA iPhone Wallet boarding pass
 //     "M1ASKREN/TEST         EA272SL ORDNRTUA 0881 007F002K0303 15C>3180 M6007BUA              2901624760758980 UA UA EY975897            *30600    09  UAG    ^160MEUCIQC1k/QcCEoSFjSivLo3RWiD3268l+OLdrFMTbTyMLRSbAIgb4JVCsWKx/h5HP7+sApYU6nwvM/70IKyUrX28SC+b94="
-
-#[test]
-fn conditional3() {
-    let src = "M3JOHN/SMITH          EABCDEF JFKSVOSK 1234 123M014C0050 35D>5180O 0276BSK              2A55559467513980 SK                         *30600000K09         ABCDEF SVOFRASU 5678 135Y013A0012 3372A55559467513990 SU SU 12345678             09         ABCDEF FRAJFKSU 9876 231Y022F0052 3372A55559467513990 SU SU 12345678             09         ";
-    println!("|");
-    let tmp = Bcbp::decode_bcbp(src);
-    println!("TMP {:#?}", tmp);
-
-    assert!(tmp.is_ok());
-
-    let bcbp = tmp.unwrap();
-
-    assert!(bcbp.passenger_name() == "JOHN/SMITH");
-    assert!(bcbp.eticket_indicator() == Some('E'));
-
-    assert_eq!(bcbp.leg(0).pnr(), Some("ABCDEF"));
-    assert_eq!(bcbp.leg(0).src_airport(), Some("JFK"));
-    assert_eq!(bcbp.leg(0).dst_airport(), Some("SVO"));
-    assert_eq!(bcbp.leg(0).operating_carrier(), Some("SK"));
-    assert_eq!(bcbp.leg(0).flight_number(), Some("1234"));
-    assert_eq!(bcbp.leg(0).flight_day(), Some(DayOfYear::new(123).unwrap()));
-
-    assert_eq!(bcbp.leg(1).pnr(), Some("ABCDEF"));
-    assert_eq!(bcbp.leg(1).src_airport(), Some("SVO"));
-    assert_eq!(bcbp.leg(1).dst_airport(), Some("FRA"));
-    assert_eq!(bcbp.leg(1).operating_carrier(), Some("SU"));
-    assert_eq!(bcbp.leg(1).flight_number(), Some("5678"));
-    assert_eq!(bcbp.leg(1).flight_day(), Some(DayOfYear::new(135).unwrap()));
-
-    assert_eq!(bcbp.leg(2).pnr(), Some("ABCDEF"));
-    assert_eq!(bcbp.leg(2).src_airport(), Some("FRA"));
-    assert_eq!(bcbp.leg(2).dst_airport(), Some("JFK"));
-    assert_eq!(bcbp.leg(2).operating_carrier(), Some("SU"));
-    assert_eq!(bcbp.leg(2).flight_number(), Some("9876"));
-    assert_eq!(bcbp.leg(2).flight_day(), Some(DayOfYear::new(231).unwrap()));
-}

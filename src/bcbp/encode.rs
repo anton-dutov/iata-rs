@@ -64,19 +64,33 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
         data.push_str(&ext);
     }
 
+    if let Some(sd) = bcbp.security_data() {
+        data.push('^');
+        data.push(sd.kind);
+        write!(data, "{:02X}", sd.data.len())?;
+        data.push_str(&sd.data);
+    }
+
     Ok(data)
 }
 
 fn encode_cond_data(bcbp: &Bcbp) -> BcbpResult<String> {
-    let mut buf = String::with_capacity(512);
+    let mut buf = String::with_capacity(128);
 
     buf.push(bcbp.pax_kind().map(char::from).unwrap_or(' '));
     buf.push(bcbp.checkin_src().unwrap_or(' '));
     buf.push(bcbp.boardingpass_src().unwrap_or(' '));
-    write!(buf, "{:03}", bcbp.boardingpass_issued().unwrap_or(0))?;
+    match bcbp.boardingpass_issued() {
+        Some(val) => write!(buf, "{val:04}")?,
+        None => buf.push_str(BLANK4),
+    }
     buf.push(bcbp.doc_type().unwrap_or(' '));
-    buf.push_str(bcbp.boardingpass_airline().as_deref().unwrap_or(BLANK3));
-    buf.push_str(&" ".repeat(14));
+    match bcbp.boardingpass_airline() {
+        Some(val) => write!(buf, "{val:<3}")?,
+        None => buf.push_str(BLANK3),
+    }
+
+    write!(buf, "{:<13}", bcbp.bagtags().unwrap_or_default())?;
 
     Ok(buf)
 }
@@ -154,7 +168,7 @@ fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
     buf.push(leg.selectee_indicator().unwrap_or(' '));
     buf.push(leg.doc_int_verification().unwrap_or(' '));
 
-    write!(buf, "{:<3}", leg.marketing_airline().unwrap_or_default())?;
+    write!(buf, "{:<3}", leg.marketing_carrier().unwrap_or_default())?;
     write!(buf, "{:<3}", leg.freq_flyer_airline().unwrap_or_default())?;
     write!(buf, "{:<16}", leg.freq_flyer_number().unwrap_or_default())?;
 
@@ -162,12 +176,23 @@ fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
 
     write!(buf, "{:<3}", leg.bag_allowance().unwrap_or_default())?;
 
-    buf.push(leg.fast_track().unwrap_or(' '));
-    buf.push_str(&leg.variable_data().as_deref().unwrap_or_default());
+    // TODO: Check version before adding fast track
+    if leg.fast_track().is_some() {
+        buf.push(leg.fast_track().unwrap_or(' '));
+    }
+
+    // Calculate conditional data size before adding variable data
+    let cond_size = buf.len();
+
+    // Doesn't include to cond_size
+    let variable_data = leg.variable_data();
+    let variable_data = variable_data.as_deref().unwrap_or_default();
+
+    buf.push_str(variable_data);
 
     let mut rec = String::with_capacity(buf.len() + 2);
 
-    write!(rec, "{:02X}", buf.len() - 2)?;
+    write!(rec, "{:02X}", cond_size)?;
 
     rec.push_str(&buf);
 

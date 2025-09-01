@@ -1,3 +1,4 @@
+use std::path::Iter;
 use std::str;
 
 use time::Date;
@@ -98,6 +99,16 @@ impl Bcbp {
 
     pub fn leg(&self, index: usize) -> &Leg {
         &self.legs[index]
+    }
+
+    /// Returns a readonly iterator over the legs.
+    pub fn legs(&self) -> std::slice::Iter<'_, Leg> {
+        self.legs.iter()
+    }
+
+    /// Returns a mutable iterator over the legs.
+    pub fn legs_mut(&mut self) -> std::slice::IterMut<'_, Leg> {
+        self.legs.iter_mut()
     }
 
     pub fn add_leg(&mut self, leg: Leg) -> BcbpResult<()> {
@@ -260,6 +271,10 @@ impl Bcbp {
         }
 
         Ok(())
+    }
+
+    fn security_data(&self) -> Option<&SecurityData> {
+        self.security_data.as_ref()
     }
 }
 

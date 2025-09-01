@@ -1,5 +1,10 @@
+use core::num;
+
 use super::*;
-use crate::datetime::{DayOfYear, Error as DateError};
+use crate::{
+    bcbp::format::Field,
+    datetime::{DayOfYear, Error as DateError},
+};
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
@@ -70,7 +75,7 @@ impl Leg {
     // gen_get_set_char!(get_set set_doc_int_verification(char::to_ascii_uppercase) for doc_int_verification);
     // gen_get_set_char!(get_set set_fast_track(char::to_ascii_uppercase) for fast_track);
     // gen_get_set!(get_set set_doc_number for doc_number with len 10);
-    // gen_get_set!(get_set set_marketing_airline for marketing_airline with len 3);
+    // gen_get_set!(get_set set_marketing_carrier for marketing_carrier with len 3);
     // gen_get_set!(get_set set_freq_flyer_airline for freq_flyer_airline with len 3);
     // gen_get_set!(get_set set_freq_flyer_numbder for freq_flyer_number with len 16);
     // gen_get_set!(get_set set_bag_allowance for bag_allowance with len 3);
@@ -121,14 +126,23 @@ impl Leg {
             .and_then(|c| c.doc_number.as_deref())
     }
 
-    pub fn set_doc_number(&mut self, doc_number: Option<&str>) -> std::result::Result<(), Error> {
-        if let Some(s) = doc_number {
-            if s.len() > 10 {
-                return Err(Error::InsufficientDataLength);
-            }
+    pub fn set_doc_number(&mut self, value: Option<&str>) -> std::result::Result<(), Error> {
+        let value = value.map(str::trim).unwrap_or_default();
+
+        let max_len = Field::DocumentFormSerialNumber.len();
+
+        if value.len() > max_len {
+            return Err(Error::FieldSizeExceeded2(
+                Field::DocumentFormSerialNumber,
+                max_len,
+            ));
         }
 
-        self.conditional_mut().doc_number = doc_number.map(str::to_string);
+        self.conditional_mut().doc_number = if value.is_empty() {
+            None
+        } else {
+            Some(value.to_string())
+        };
 
         Ok(())
     }
@@ -175,23 +189,26 @@ impl Leg {
         Ok(())
     }
 
-    pub fn marketing_airline(&self) -> Option<&str> {
+    pub fn marketing_carrier(&self) -> Option<&str> {
         self.conditional_data
             .as_ref()
             .and_then(|c| c.marketing_carrier.as_deref())
     }
 
-    pub fn set_marketing_airline(
-        &mut self,
-        airline: Option<&str>,
-    ) -> std::result::Result<(), Error> {
-        if let Some(s) = airline {
-            if s.len() > 3 {
-                return Err(Error::InsufficientDataLength);
-            }
+    pub fn set_marketing_carrier(&mut self, value: Option<&str>) -> std::result::Result<(), Error> {
+        let value = value.map(str::trim).unwrap_or_default();
+
+        let max_len = Field::MarketingCarrier.len();
+
+        if value.len() > max_len {
+            return Err(Error::FieldSizeExceeded2(Field::MarketingCarrier, max_len));
         }
 
-        self.conditional_mut().marketing_carrier = airline.map(str::to_string);
+        self.conditional_mut().marketing_carrier = if value.is_empty() {
+            None
+        } else {
+            Some(value.to_string())
+        };
 
         Ok(())
     }
@@ -204,15 +221,24 @@ impl Leg {
 
     pub fn set_freq_flyer_airline(
         &mut self,
-        airline: Option<&str>,
+        value: Option<&str>,
     ) -> std::result::Result<(), Error> {
-        if let Some(s) = airline {
-            if s.len() > 3 {
-                return Err(Error::InsufficientDataLength);
-            }
+        let value = value.map(str::trim).unwrap_or_default();
+
+        let max_len = Field::FrequentFlyerAirline.len();
+
+        if value.len() > max_len {
+            return Err(Error::FieldSizeExceeded2(
+                Field::FrequentFlyerAirline,
+                max_len,
+            ));
         }
 
-        self.conditional_mut().freq_flyer_airline = airline.map(str::to_string);
+        self.conditional_mut().freq_flyer_airline = if value.is_empty() {
+            None
+        } else {
+            Some(value.to_string())
+        };
 
         Ok(())
     }
@@ -223,17 +249,23 @@ impl Leg {
             .and_then(|c| c.freq_flyer_number.as_deref())
     }
 
-    pub fn set_freq_flyer_number(
-        &mut self,
-        number: Option<&str>,
-    ) -> std::result::Result<(), Error> {
-        if let Some(s) = number {
-            if s.len() > 16 {
-                return Err(Error::InsufficientDataLength);
-            }
+    pub fn set_freq_flyer_number(&mut self, value: Option<&str>) -> std::result::Result<(), Error> {
+        let value = value.map(str::trim).unwrap_or_default();
+
+        let max_len = Field::FrequentFlyerNumber.len();
+
+        if value.len() > max_len {
+            return Err(Error::FieldSizeExceeded2(
+                Field::FrequentFlyerNumber,
+                max_len,
+            ));
         }
 
-        self.conditional_mut().freq_flyer_number = number.map(str::to_string);
+        self.conditional_mut().freq_flyer_number = if value.is_empty() {
+            None
+        } else {
+            Some(value.to_string())
+        };
 
         Ok(())
     }
@@ -262,14 +294,23 @@ impl Leg {
             .and_then(|c| c.bag_allowance.as_deref())
     }
 
-    pub fn set_bag_allowance(&mut self, allowance: Option<&str>) -> std::result::Result<(), Error> {
-        if let Some(s) = allowance {
-            if s.len() > 3 {
-                return Err(Error::InsufficientDataLength);
-            }
+    pub fn set_bag_allowance(&mut self, value: Option<&str>) -> std::result::Result<(), Error> {
+        let value = value.map(str::trim).unwrap_or_default();
+
+        let max_len = Field::FreeBaggageAllowance.len();
+
+        if value.len() > max_len {
+            return Err(Error::FieldSizeExceeded2(
+                Field::FreeBaggageAllowance,
+                max_len,
+            ));
         }
 
-        self.conditional_mut().bag_allowance = allowance.map(str::to_string);
+        self.conditional_mut().bag_allowance = if value.is_empty() {
+            None
+        } else {
+            Some(value.to_string())
+        };
 
         Ok(())
     }

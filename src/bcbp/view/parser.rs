@@ -163,7 +163,7 @@ fn decode_leg<'a>(cursor: &mut Cursor<'a>) -> BcbpResult<Leg<'a>> {
     leg.dst_airport = cursor.read_str(Field::ToCityAirportCode)?;
 
     // Item 42: Operating Carrier Designator, 3 characters, IATA airline designator.
-    leg.operating_carrier = cursor.read_str(Field::OperatingCarrierDesignator)?;
+    leg.operating_carrier = cursor.read_str(Field::OperatingCarrier)?;
 
     // Item 43: Flight Number, 5 characters, numeric, right justified, zero filled.
     leg.flight_number = cursor.read_str(Field::FlightNumber)?;
@@ -214,12 +214,12 @@ fn decode_leg_conditional<'a>(span: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpR
 
     // Item 19: Marketing Carrier Designator, 3 characters
     leg.marketing_carrier = repeated
-        .read_str_opt(Field::MarketingCarrierDesignator)?
+        .read_str_opt(Field::MarketingCarrier)?
         .map(Into::into);
 
     // Item 20: Frequent Flyer Airline Designator, 3 characters
     leg.frequent_flyer_airline = repeated
-        .read_str_opt(Field::FrequentFlyerAirlineDesignator)?
+        .read_str_opt(Field::FrequentFlyerAirline)?
         .map(Into::into);
 
     // Item 236: Frequent Flyer Number, 16 characters

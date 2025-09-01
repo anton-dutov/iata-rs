@@ -166,10 +166,10 @@ define_fields!(
     (SelecteeIndicator,                         1,  "Selectee Indicator"),
 
     /// Item 19: Marketing Carrier Designator. 3 bytes. Format 'f'.
-    (MarketingCarrierDesignator,                3,  "Marketing Carrier Designator"),
+    (MarketingCarrier,                          3,  "Marketing Carrier Designator"),
 
     /// Item 20: Frequent Flyer Airline Designator. 3 bytes. Format 'f'.
-    (FrequentFlyerAirlineDesignator,            3,  "Frequent Flyer Airline Designator"),
+    (FrequentFlyerAirline,                      3,  "Frequent Flyer Airline Designator"),
 
     /// Item 21: Airline Designator of Boarding Pass Issuer. 3 bytes. Format 'f'.
     (AirlineDesignatorOfBoardingPassIssuer,     3,  "Airline Designator of Boarding Pass Issuer"),
@@ -207,7 +207,7 @@ define_fields!(
     (ToCityAirportCode,                         3,  "To City Airport Code"),
 
     /// Item 42: Operating Carrier Designator. 3 bytes. Format 'f'.
-    (OperatingCarrierDesignator,                3,  "Operating Carrier Designator"),
+    (OperatingCarrier,                          3,  "Operating Carrier Designator"),
 
     /// Item 43: Flight Number. 5 bytes. Format 'NNNN[a]'.
     (FlightNumber,                              5,  "Flight Number"),
