@@ -9,7 +9,7 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
     let legs_count = bcbp.legs_count();
 
     if !(1..9).contains(&legs_count) {
-        return Err(Error::InvalidLegsCount);
+        return Err(Error::InvalidNumberOfLegs);
     }
 
     let mut mandatory = String::with_capacity(60);
@@ -24,7 +24,7 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
 
     let mut legs = bcbp.legs.iter();
 
-    let first_leg = legs.next().unwrap();
+    let first_leg = legs.next().ok_or_else(|| Error::InvalidNumberOfLegs)?;
 
     mandatory.push_str(&encode_leg_mandatory_data(first_leg)?);
 
@@ -138,7 +138,7 @@ fn encode_leg_mandatory_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
 
     // Sequence (4 characters, zero-padded) or spaces
     if let Some(seq) = leg.checkin_sequence() {
-        write!(buf, "{:0>4}", seq).unwrap();
+        write!(buf, "{:0>4}", seq)?;
     } else {
         buf.push_str(BLANK4);
     }
@@ -166,7 +166,7 @@ fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
     write!(buf, "{:<10}", leg.doc_number().unwrap_or_default())?;
 
     buf.push(leg.selectee_indicator().unwrap_or(' '));
-    buf.push(leg.doc_int_verification().unwrap_or(' '));
+    buf.push(leg.doc_intl_verification().unwrap_or(' '));
 
     write!(buf, "{:<3}", leg.marketing_carrier().unwrap_or_default())?;
     write!(buf, "{:<3}", leg.freq_flyer_airline().unwrap_or_default())?;
@@ -174,7 +174,7 @@ fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
 
     buf.push(leg.id_ad_indicator().unwrap_or(' '));
 
-    write!(buf, "{:<3}", leg.bag_allowance().unwrap_or_default())?;
+    write!(buf, "{:<3}", leg.baggage_allowance().unwrap_or_default())?;
 
     // TODO: Check version before adding fast track
     if leg.fast_track().is_some() {

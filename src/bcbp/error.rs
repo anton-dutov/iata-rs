@@ -2,46 +2,45 @@ use super::format::Field;
 
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum Error {
-    // --- базовый формат / размеры ---
-    #[error("mandatory data size is missing")]
-    MandatoryDataSize,
-
-    #[error("insufficient data length")]
-    InsufficientDataLength,
+    #[error("BCBP is shorter than minimum length")]
+    BcbpTooShort,
 
     #[error("invalid format code: {0}")]
     InvalidFormatCode(char),
+
+    #[error("insufficient data length")]
+    InsufficientDataLength,
 
     #[error("invalid prefix for {0}: got '{1}'")]
     InvalidPrefix(Field, char),
 
     #[error("invalid number of legs")]
-    InvalidLegsCount,
+    InvalidNumberOfLegs,
 
     #[error("invalid format")]
     InvalidFormat,
 
+    #[error("invalid format for field {field}")]
+    InvalidFieldFormat { field: Field },
+
     #[error("field size exceeded")]
-    FieldSizeExceeded,
+    FieldTooLong,
 
-    #[error("field size exceeded: {0}, max {1}")]
-    FieldSizeExceeded2(Field, usize),
+    #[error("field size exceeded: {field}, max {max}")]
+    FieldLengthExceeded { field: Field, max: usize },
 
-    // --- условные данные ---
     #[error("conditional data is present but not allowed here")]
     ConditionalData,
 
-    #[error("invalid conditional data size")]
-    ConditionalDataSize,
+    #[error("not enough data for declared conditional data length")]
+    ConditionalDataLengthMismatch,
 
-    // --- версия / последовательности ---
     #[error("invalid version: {0}")]
     InvalidVersion(char),
 
     #[error("invalid check-in sequence")]
     InvalidCheckInSequence,
 
-    // --- парсинг / ввод ---
     /// The end of the input was reached prematurely.
     #[error("unexpected end of input while parsing {0}")]
     UnexpectedEndOfInput(Field),
@@ -64,11 +63,11 @@ pub enum Error {
 
     /// Returned when alphanumeric characters were expected
     #[error("alphanumeric characters expected")]
-    AlphaNumExpected,
+    AlphanumericExpected,
 
     /// Returned when alphabetic characters were expected
     #[error("alphabetic characters expected")]
-    AlphaExpected,
+    AlphabeticExpected,
 
     /// Returned when digit characters were expected
     #[error("digits expected")]
@@ -77,8 +76,8 @@ pub enum Error {
     #[error(transparent)]
     FmtError(#[from] std::fmt::Error),
 
-    #[error("InvalidAirlineNumber")]
-    InvalidAirlineNum,
+    #[error(transparent)]
+    DateTimeErro(#[from] crate::datetime::Error),
 }
 
 #[derive(Debug, PartialEq)]

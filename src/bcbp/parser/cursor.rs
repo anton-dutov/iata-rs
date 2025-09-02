@@ -120,8 +120,14 @@ impl<'a> Cursor<'a> {
             field.len() == 1,
             "Attempting to scan a single character out of a longer field."
         );
-        self.read_str(field)
-            .map(|value| value.chars().next().unwrap())
+        let value = self.read_str(field)?;
+
+        let value = value
+            .chars()
+            .next()
+            .ok_or_else(|| Error::UnexpectedEndOfInput(field))?;
+
+        Ok(value)
     }
 
     /// Scans and returns an optional character value underlying a fixed-length field.

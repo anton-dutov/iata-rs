@@ -29,7 +29,7 @@ pub fn decode_bcbp_view<'a>(input: &'_ str) -> BcbpResult<BcbpView<'_>> {
     let legs_count = cursor.read_u8(Field::NumberOfLegsEncoded, 10)?;
 
     if !(1..=9).contains(&legs_count) {
-        return Err(Error::InvalidLegsCount);
+        return Err(Error::InvalidNumberOfLegs);
     }
 
     let mut bcbp = BcbpView::default();

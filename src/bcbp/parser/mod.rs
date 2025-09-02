@@ -24,7 +24,7 @@ pub fn decode_bcbp(src: &str) -> BcbpResult<Bcbp> {
     let src = src.to_uppercase();
 
     if src.len() < 60 {
-        return Err(Error::MandatoryDataSize);
+        return Err(Error::BcbpTooShort);
     }
 
     // Item 1: Format Code, 1 character, M for standard IATA BCBP.
@@ -38,7 +38,7 @@ pub fn decode_bcbp(src: &str) -> BcbpResult<Bcbp> {
     let legs_count = cursor.read_u8(Field::NumberOfLegsEncoded, 10)?;
 
     if !(1..=9).contains(&legs_count) {
-        return Err(Error::InvalidLegsCount);
+        return Err(Error::InvalidNumberOfLegs);
     }
 
     let mut bcbp = Bcbp::default();
@@ -89,7 +89,7 @@ fn decode_conditional(cursor: &mut Cursor, bcbp: &mut Bcbp, leg: &mut Leg) -> Bc
     }
 
     if cond_size > cursor.remaining() {
-        return Err(Error::ConditionalDataSize);
+        return Err(Error::ConditionalDataLengthMismatch);
     }
 
     let mut cond_data = cursor.read_chunk(cond_size)?;
@@ -138,6 +138,7 @@ fn decode_conditional(cursor: &mut Cursor, bcbp: &mut Bcbp, leg: &mut Leg) -> Bc
                     .unwrap_or(""),
             ))?;
 
+            // BCBP v4
             // Item 23: Baggage Tag License Plate, 13 characters
             bcbp.set_bagtags(
                 unique
@@ -145,6 +146,7 @@ fn decode_conditional(cursor: &mut Cursor, bcbp: &mut Bcbp, leg: &mut Leg) -> Bc
                     .map(|x| x.trim().into()),
             )?;
 
+            // BCBP v4
             // Item 31: First Non-Consecutive Baggage Tag License Plate, 13 characters
             bcbp.set_nonconsecutive_bagtag1(
                 unique
@@ -187,10 +189,10 @@ fn decode_leg(cursor: &mut Cursor) -> BcbpResult<Leg> {
     // Item 46: Date of Flight, 3 characters, numeric
     let flight_day = cursor.read_str(Field::DateOfFlight)?;
     leg.set_flight_day(if !flight_day.trim().is_empty() {
-        Some(DayOfYear::new(u16_from_str_force(flight_day, 10)).unwrap())
+        Some(DayOfYear::new(u16_from_str_force(flight_day, 10))?)
     } else {
         None
-    });
+    })?;
 
     // Item 71: Compartment Code, 1 character, alphabetic.
     leg.set_compartment(blank_or_into(cursor.read_char(Field::CompartmentCode)?))?;
@@ -205,7 +207,7 @@ fn decode_leg(cursor: &mut Cursor) -> BcbpResult<Leg> {
     ))?;
 
     // Item 113: Passenger Status. 1 byte. Format 'f'.
-    leg.set_pax_status(cursor.read_char(Field::PassengerStatus)?.into());
+    leg.set_pax_status(cursor.read_char(Field::PassengerStatus)?.into())?;
 
     Ok(leg)
 }
@@ -237,7 +239,7 @@ fn decode_leg_conditional(span: &mut Cursor, leg: &mut Leg) -> BcbpResult<()> {
     ))?;
 
     // Item 108: International Document Verification, 1 character
-    leg.set_doc_int_verification(
+    leg.set_doc_intl_verification(
         repeated.read_char_opt(Field::InternationalDocumentVerification)?,
     )?;
 
@@ -266,7 +268,7 @@ fn decode_leg_conditional(span: &mut Cursor, leg: &mut Leg) -> BcbpResult<()> {
     leg.set_id_ad_indicator(repeated.read_char_opt(Field::IdAdIndicator)?)?;
 
     // Item 118: Free Baggage Allowance, 3 characters
-    leg.set_bag_allowance(Some(
+    leg.set_baggage_allowance(Some(
         repeated
             .read_str_opt(Field::FreeBaggageAllowance)?
             .unwrap_or(""),
@@ -285,6 +287,7 @@ fn decode_leg_conditional(span: &mut Cursor, leg: &mut Leg) -> BcbpResult<()> {
     Ok(())
 }
 
+// BCBP v3
 fn decode_security_data(input: &mut Cursor) -> BcbpResult<Option<SecurityData>> {
     if input.remaining() == 0 {
         return Ok(None);

@@ -1,80 +1,173 @@
-/// Generate getter/setter for an `Option<char>` field.
-///
-/// Forms:
-/// - `gen_get_set_char!(get_set set_method for field_name);`
-/// - `gen_get_set_char!(get_set set_method(preprocess_fn) for field_name);`
-///   where `preprocess_fn: fn(char) -> char` (e.g. `char::to_ascii_uppercase`)
-/// - `gen_get_set_char!(get_set set_method for field_name where verify_expr);`
-/// - `gen_get_set_char!(get_set set_method(preprocess_fn) for field_name where verify_expr);`
-///   where `verify_expr` is an expression callable as `verify_expr(c: char) -> BcbpResult<()>`.
-///
-/// Поведение:
-/// - `None` очищает поле (`take()`).
-/// - Проверяем ASCII (`InvalidCharacters` для не-ASCII).
-/// - Применяем препроцессор, затем валидацию.
-/// - Геттер возвращает `Option<char>` по значению.
-macro_rules! gen_get_set_char {
-    (get_set $method_name:ident for $field_name:ident) => {
-        gen_get_set_char!(get_set $method_name(|c: char| c) for $field_name where |_c: char| -> BcbpResult<()> { Ok(()) });
-    };
-    (get_set $method_name:ident($preprocess:path) for $field_name:ident) => {
-        gen_get_set_char!(get_set $method_name($preprocess) for $field_name where |_c: char| -> BcbpResult<()> { Ok(()) });
-    };
-    (get_set $method_name:ident for $field_name:ident where $verify:expr) => {
-        gen_get_set_char!(get_set $method_name(|c: char| c) for $field_name where $verify);
-    };
-    (get_set $method_name:ident($preprocess:path) for $field_name:ident where $verify:expr) => {
-        /// Setter for a single ASCII character; `None` clears the field.
+macro_rules! gen_get {
+    ($field:ident as $ty:ty) => {
         #[inline]
-        pub fn $method_name(&mut self, ch: Option<char>) -> BcbpResult<()> {
-            match ch {
-                None => {
-                    self.$field_name.take();
-                    Ok(())
-                }
-                Some(mut c) => {
-                    if !c.is_ascii() {
-                        return Err(Error::InvalidCharacters);
-                    }
-                    c = $preprocess(&c);
-                    $verify(c)?;
-                    self.$field_name = Some(c);
-                    Ok(())
-                }
-            }
+        pub fn $field(&self) -> $ty {
+            self.$field
         }
+    };
 
-        /// Getter: returns the stored character (if any).
+    ($field:ident as_ref $ty:ty) => {
         #[inline]
-        pub fn $field_name(&self) -> Option<char> {
-            self.$field_name
+        pub fn $field(&self) -> $ty {
+            self.$field.as_ref()
+        }
+    };
+
+    ($field:ident as_deref $ty:ty) => {
+        #[inline]
+        pub fn $field(&self) -> $ty {
+            self.$field.as_deref()
+        }
+    };
+
+    (cond $field:ident as $ty:ty) => {
+        #[inline]
+        pub fn $field(&self) -> $ty {
+            self.conditional_data.as_ref().and_then(|c| c.$field)
+        }
+    };
+
+    (cond $field:ident as_deref $ty:ty) => {
+        #[inline]
+        pub fn $field(&self) -> $ty {
+            self.conditional_data
+                .as_ref()
+                .and_then(|c| c.$field.as_deref())
         }
     };
 }
 
-macro_rules! gen_get_set {
-    (get_set $method_name:ident for $field_name:ident with len $to:literal) => {
-        gen_get_set!(get_set $method_name for $field_name with len 1..=$to);
+macro_rules! gen_set {
+    ($field:ident as Option<$ty:ty>) => {
+        gen_set!($field(core::convert::identity) as Option<$ty>);
     };
-    (get_set $method_name:ident for $field_name:ident with len $from:literal..=$to:literal) => {
-        gen_get_set!(get_set $method_name(str::trim) for $field_name with len $from..=$to);
+    ($field:ident as Option<$ty:ty> using $bcbp_field:path) => {
+        gen_set!($field(core::convert::identity) as Option<$ty> using $bcbp_field);
     };
-    (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $to:literal) => {
-        gen_get_set!(get_set $method_name($preprocess) for $field_name with len 1..=$to);
+    (cond $field:ident as Option<$ty:ty> using $bcbp_field:path) => {
+        gen_set!(cond $field(core::convert::identity) as Option<$ty> using $bcbp_field);
     };
-    (get_set $method_name:ident($preprocess:path) for $field_name:ident with len $from:literal..=$to:literal) => {
-        gen_get_set!(
-            get_set $method_name($preprocess) for $field_name
+    ($field:ident as $ty:ty) => {
+        gen_set!($field(core::convert::identity) as $ty);
+    };
+
+    ($field:ident($preprocess:expr) as Option<$ty:ty>) => {
+        paste::paste! {
+            #[inline]
+            pub fn [<set_ $field>](&mut self, value: Option<$ty>) -> BcbpResult<()> {
+
+                let value = value.map($preprocess);
+
+                self.$field = value;
+
+                Ok(())
+            }
+        }
+    };
+
+    ($field:ident($preprocess:expr) as Option<$ty:ty> using $bcbp_field:path) => {
+        paste::paste! {
+            #[inline]
+            pub fn [<set_ $field>](&mut self, value: Option<$ty>) -> BcbpResult<()> {
+
+                let value = value.map($preprocess).unwrap_or_default();
+                let field = $bcbp_field;
+                let max = field.len();
+
+                if max > 0 && value.len() > max {
+                    return Err(Error::FieldLengthExceeded { field, max });
+                }
+
+                if value.is_empty() {
+                    self.$field = None;
+                } else {
+                    self.$field = Some(value.to_owned());
+                }
+
+                Ok(())
+            }
+        }
+    };
+
+    ($field:ident($preprocess:expr) as $ty:ty) => {
+        paste::paste! {
+            #[inline]
+            pub fn [<set_ $field>](&mut self, value: $ty) -> BcbpResult<()> {
+
+                let value = $preprocess(value);
+
+                self.$field = value;
+
+                Ok(())
+            }
+        }
+    };
+
+    (cond $field:ident as $ty:ty) => {
+        paste::paste! {
+            #[inline]
+            pub fn [<set_ $field>](&mut self, value: $ty) -> BcbpResult<()> {
+                self.conditional_mut().$field = value;
+
+                Ok(())
+            }
+        }
+    };
+
+    (cond $field:ident($preprocess:expr) as Option<$ty:ty> using $bcbp_field:path) => {
+        paste::paste! {
+            #[inline]
+            pub fn [<set_ $field>](&mut self, value: Option<$ty>) -> BcbpResult<()> {
+
+                let value = value.map($preprocess).unwrap_or_default();
+                let field = $bcbp_field;
+                let max = field.len();
+
+                if max > 0 && value.len() > max {
+                    return Err(Error::FieldLengthExceeded { field, max });
+                }
+
+                if value.is_empty() {
+                    self.conditional_mut().$field = None;
+                } else {
+                    self.conditional_mut().$field = Some(value.to_owned());
+                }
+
+                Ok(())
+            }
+        }
+    };
+}
+
+// pub fn set_checkin_src(&mut self, checkin_src: Option<char>) -> BcbpResult<()> {
+//     self.conditional_mut().checkin_src = checkin_src;
+
+//     Ok(())
+// }
+
+macro_rules! gen_set_str {
+    ($method_name:ident for $field_name:ident with len $to:literal) => {
+        gen_set_str!($method_name for $field_name with len 1..=$to);
+    };
+    ($method_name:ident for $field_name:ident with len $from:literal..=$to:literal) => {
+        gen_set_str!($method_name(str::trim) for $field_name with len $from..=$to);
+    };
+    ($method_name:ident($preprocess:path) for $field_name:ident with len $to:literal) => {
+        gen_set_str!($method_name($preprocess) for $field_name with len 1..=$to);
+    };
+    ($method_name:ident($preprocess:path) for $field_name:ident with len $from:literal..=$to:literal) => {
+        gen_set_str!(
+            $method_name($preprocess) for $field_name
             with |s: &str| {
                 if !($from..=$to).contains(&s.len()) {
-                    Err(Error::FieldSizeExceeded)
+                    Err(Error::FieldTooLong)
                 } else {
                     Ok(())
                 }
             }
         );
     };
-    (get_set $method_name:ident($preprocess:path) for $field_name:ident with $verify:expr) => {
+    ($method_name:ident($preprocess:path) for $field_name:ident with $verify:expr) => {
         pub fn $method_name(&mut self, s: Option<&str>) -> BcbpResult<()> {
 
             let s = s.unwrap_or_default().trim();
@@ -95,12 +188,9 @@ macro_rules! gen_get_set {
             self.$field_name = Some(s.to_owned());
             Ok(())
         }
-
-        pub fn $field_name(&self) -> Option<&str> {
-            self.$field_name.as_deref()
-        }
     };
 }
 
-pub(crate) use gen_get_set;
-pub(crate) use gen_get_set_char;
+pub(crate) use gen_get;
+pub(crate) use gen_set;
+pub(crate) use gen_set_str;

@@ -257,7 +257,7 @@ fn error_invalid_legs_count() {
         let err = Bcbp::decode_bcbp(s).expect_err("Parsing should have failed");
 
         if b == b'0' {
-            assert_eq!(err, Error::InvalidLegsCount,);
+            assert_eq!(err, Error::InvalidNumberOfLegs);
         } else {
             assert_eq!(err, Error::ExpectedInteger(Field::NumberOfLegsEncoded),);
         }
@@ -265,15 +265,15 @@ fn error_invalid_legs_count() {
 }
 
 #[test]
-fn error_data_size() {
+fn error_data_length() {
     if let Err(e) = Bcbp::decode_bcbp("") {
-        assert!(e == Error::MandatoryDataSize);
+        assert!(e == Error::BcbpTooShort);
     }
 
     if let Err(e) =
         Bcbp::decode_bcbp("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF")
     {
-        assert!(e == Error::ConditionalDataSize);
+        assert!(e == Error::ConditionalDataLengthMismatch);
     }
 }
 
