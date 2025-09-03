@@ -176,6 +176,7 @@ impl Bcbp {
 }
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 struct ConditionalData {
     version: Option<Version>,
     pax_kind: Option<PaxKind>,

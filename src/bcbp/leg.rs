@@ -18,6 +18,7 @@ pub struct Leg {
 }
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 struct LegConditionalData {
     airline_num: Option<u16>,
     doc_number: Option<String>,

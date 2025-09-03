@@ -1,6 +1,7 @@
 use super::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 pub enum Version {
     Value(u8),
     Other(u8),
