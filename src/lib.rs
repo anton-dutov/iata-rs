@@ -1,3 +1,5 @@
+#[cfg(feature = "with-bcbp")]
 pub mod bcbp;
 pub mod datetime;
-pub mod macros;
+#[cfg(feature = "with-bcbp")]
+pub(crate) mod macros;

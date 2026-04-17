@@ -5,6 +5,8 @@
 
 //! Valid boarding pass data in formats not yet supported.
 
+#![cfg(feature = "with-bcbp")]
+
 use iata::bcbp::view::*;
 
 #[test]

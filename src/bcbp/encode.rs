@@ -24,7 +24,7 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
 
     let mut legs = bcbp.legs.iter();
 
-    let first_leg = legs.next().ok_or_else(|| Error::InvalidNumberOfLegs)?;
+    let first_leg = legs.next().ok_or(Error::InvalidNumberOfLegs)?;
 
     mandatory.push_str(&encode_leg_mandatory_data(first_leg)?);
 
@@ -121,7 +121,7 @@ fn encode_leg_mandatory_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
     buf.push(leg.compartment().unwrap_or(' '));
 
     // Seat (4 characters): if starts with digit — zero-pad right to 4, otherwise left-pad with spaces
-    match leg.seat().as_deref() {
+    match leg.seat() {
         Some(s)
             if s.as_bytes()
                 .first()
@@ -186,7 +186,7 @@ fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
 
     // Doesn't include to cond_size
     let variable_data = leg.variable_data();
-    let variable_data = variable_data.as_deref().unwrap_or_default();
+    let variable_data = variable_data.unwrap_or_default();
 
     buf.push_str(variable_data);
 

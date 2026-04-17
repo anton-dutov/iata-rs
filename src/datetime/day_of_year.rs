@@ -12,7 +12,7 @@ pub struct DayOfYear(u16);
 
 impl DayOfYear {
     /// Constructs a new instance of [`DayOfYear`] based off the day number.
-    /// All numbers not within range `1..=366` are accepted.
+    /// Only numbers within range `1..=366` are accepted.
     ///
     /// # Errors
     /// If `day` is not from `1..=366` [`Error::InvalidDayOfYearRange`] is returned.
@@ -43,20 +43,26 @@ impl DayOfYear {
         self.0
     }
 
-    /// Converts this date into [`time::Date`]. If it turns out that
+    /// Converts this date into [`jiff::civil::Date`]. If it turns out that
     /// `year` is not a leap year and the day is 366'th, [`Error::OverflowNotLeapYear`]
     /// is returned.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
-        Date::from_ordinal_date(year, self.0).map_err(|_| Error::OverflowNotLeapYear)
+        if self.0 == 366 && !is_leap_year(year) {
+            return Err(Error::OverflowNotLeapYear);
+        }
+
+        Date::new(year as i16, 1, 1)
+            .and_then(|d| d.checked_add((self.0 as i64 - 1).days()))
+            .map_err(|_| Error::OverflowNotLeapYear)
     }
 
     /// Tries to figure out what year the day stored in `self` belongs to. Equivalent to
-    /// `self.to_naive_date_adapt(&today, days)`.
+    /// `self.to_date_adapt(today, days)`.
     ///
     /// For more information about algorithm and some examples, see
     /// [`Self::to_date_adapt()`].
-    pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
-        let now = OffsetDateTime::now_utc().to_offset(offset);
+    pub fn to_date_adapt_year(&self, offset: Offset, days: u8) -> Result<Date, Error> {
+        let now = Timestamp::now().to_zoned(TimeZone::fixed(offset));
 
         self.to_date_adapt(now.date(), days)
     }
@@ -65,18 +71,18 @@ impl DayOfYear {
     /// techniques used by the function (here "today's date" is whatever is stored in `for_date`):
     ///
     /// 1. If `self.ordinal()` is more than `days` days earlier than today's date,
-    /// `self.ordinal()` is not more than `days` days later than the start of year -- it
-    /// is considered that `self` belongs to the next year.
+    ///    `self.ordinal()` is not more than `days` days later than the start of year -- it
+    ///    is considered that `self` belongs to the next year.
     /// 2. If `self.ordinal()` is less than `days` days away from year's end, today's date
-    /// is not more than `days` days later than the start of the year -- it is considered that
-    /// `self` belongs to the previous year.
+    ///    is not more than `days` days later than the start of the year -- it is considered that
+    ///    `self` belongs to the previous year.
     /// 3. Otherwise we consider `self` belonging to the same year today's date belongs to.
     ///
     /// # Errors
     ///
-    /// * If `days` is greater than 31 -- [`Error::InvalidAdaptRange`] is returned.
-    /// * If [`Self::ordinal()`] is 366 and and the algorithm has decided that `self` belongs to
-    /// a non-leap year -- [`Error::OverflowNotLeapYear`] is returned.
+    /// * If `days` is not in `1..=31` -- [`Error::InvalidAdaptRange`] is returned.
+    /// * If [`Self::ordinal()`] is 366 and the algorithm has decided that `self` belongs to
+    ///   a non-leap year -- [`Error::OverflowNotLeapYear`] is returned.
     ///
     /// # Examples
     ///
@@ -92,22 +98,21 @@ impl DayOfYear {
     ///
     /// ```
     /// use iata::datetime::DayOfYear;
-    /// use time::macros::date;
     ///
-    /// let date = date!(2015 - 364);
+    /// let date = DayOfYear::new(364).unwrap().to_date(2015).unwrap();
     ///
     /// // It's day `4`, `days` (the allowed range) is 7. The function will
     /// // assume it's the boarding pass for the next year.
     /// assert_eq!(
     ///     DayOfYear::new(4).unwrap().to_date_adapt(date, 7),
-    ///     Ok(date!(2016 - 004)),
+    ///     DayOfYear::new(4).unwrap().to_date(2016),
     /// );
     /// // It's day `4`, `days` (the allowed range) is 2. The function will
     /// // assume it's the boarding pass for this year, since the date is out
     /// // of the allowed range.
     /// assert_eq!(
     ///     DayOfYear::new(4).unwrap().to_date_adapt(date, 2),
-    ///     Ok(date!(2015 - 004)),
+    ///     DayOfYear::new(4).unwrap().to_date(2015),
     /// );
     /// ```
     ///
@@ -117,13 +122,12 @@ impl DayOfYear {
     ///
     /// ```
     /// use iata::datetime::DayOfYear;
-    /// use time::macros::date;
     ///
-    /// let date = date!(2015 - 004);
+    /// let date = DayOfYear::new(4).unwrap().to_date(2015).unwrap();
     ///
     /// assert_eq!(
     ///     DayOfYear::new(364).unwrap().to_date_adapt(date, 7),
-    ///     Ok(date!(2014 - 364)),
+    ///     DayOfYear::new(364).unwrap().to_date(2014),
     /// );
     /// ```
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
@@ -131,13 +135,14 @@ impl DayOfYear {
             return Err(Error::InvalidAdaptRange(days));
         }
 
-        let mut year = for_date.year();
+        let mut year: i32 = for_date.year() as i32;
+        let for_ordinal = for_date.day_of_year() as u16;
 
         let days = days as u16;
         let upper_limit = 365 - days;
-        if self.0 < days && for_date.ordinal() > upper_limit {
+        if self.0 < days && for_ordinal > upper_limit {
             year += 1;
-        } else if self.0 > upper_limit && for_date.ordinal() < days {
+        } else if self.0 > upper_limit && for_ordinal < days {
             year -= 1;
         }
 

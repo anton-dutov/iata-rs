@@ -5,6 +5,8 @@
 
 //! Test cases derived from real-world boarding pass data.
 
+#![cfg(feature = "with-bcbp")]
+
 use iata::bcbp::view::*;
 
 #[test]

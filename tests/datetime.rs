@@ -96,13 +96,14 @@ fn test_day_of_year_leap_year() {
 #[test]
 fn test_day_of_year_to_date() {
 
-    use time::Date;
+    use jiff::{civil::Date, ToSpan};
 
     for year in MIN_YEAR..MAX_YEAR {
+        let jan1 = Date::new(year as i16, 1, 1).unwrap();
         let it =
             (1..=DAYS_IN_YEAR)
                 .filter_map(|day|
-                    Date::from_ordinal_date(year, day)
+                    jan1.checked_add(((day as i64) - 1).days())
                     .map(|x| (day, x))
                     .ok()
                 );
@@ -115,37 +116,42 @@ fn test_day_of_year_to_date() {
 
 #[test]
 fn test_day_of_year_to_date_adapt() {
-    use time::{Date, Month};
+    use jiff::{civil::Date, ToSpan};
 
     const WINDOW_SIZE_MAX: u16 = 31;
 
+    let ordinal = |year: i32, day: u16| {
+        Date::new(year as i16, 1, 1).unwrap()
+            .checked_add(((day as i64) - 1).days()).unwrap()
+    };
+
     // When ticket is for the next year
-    let next_year_test = |window, year| {
+    let next_year_test = |window, year: i32| {
         for offset in 0..window {
             for day in 1..window {
                 assert_eq!(
                     DayOfYear::new(day).unwrap()
                     .to_date_adapt(
-                        Date::from_calendar_date(year, Month::December, 31 - offset as u8).unwrap(),
+                        Date::new(year as i16, 12, 31 - offset as i8).unwrap(),
                         window as u8
                     ),
-                    Ok(Date::from_calendar_date(year + 1, Month::January, day as u8).unwrap())
+                    Ok(Date::new((year + 1) as i16, 1, day as i8).unwrap())
                 );
             }
         }
     };
 
     // When ticket is for the previous year
-    let prev_year_test = |window, year| {
+    let prev_year_test = |window, year: i32| {
         for offset in 1..window {
             let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1).unwrap()
             .to_date_adapt(
-                Date::from_calendar_date(year, Month::January, offset as u8).unwrap(),
+                Date::new(year as i16, 1, offset as i8).unwrap(),
                 window as u8
             );
 
             if is_leap_year(year - 1) {
-                assert_eq!(edge_date, Ok(Date::from_ordinal_date(year - 1, DAYS_IN_YEAR + 1).unwrap()));
+                assert_eq!(edge_date, Ok(ordinal(year - 1, DAYS_IN_YEAR + 1)));
             } else {
                 assert_eq!(edge_date, Err(Error::OverflowNotLeapYear));
             }
@@ -154,10 +160,10 @@ fn test_day_of_year_to_date_adapt() {
                 assert_eq!(
                     DayOfYear::new(day).unwrap()
                     .to_date_adapt(
-                        Date::from_calendar_date(year, Month::January, offset as u8).unwrap(),
+                        Date::new(year as i16, 1, offset as i8).unwrap(),
                         window as u8
                     ),
-                    Ok(Date::from_ordinal_date(year - 1, day).unwrap())
+                    Ok(ordinal(year - 1, day))
                 );
             }
         }
@@ -221,37 +227,37 @@ fn test_short_date_leap_year() {
 
 #[test]
 fn test_short_date_to_date_adapt() {
-    use time::{Date};
+    use jiff::civil::Date;
 
     const WINDOW_SIZE_MAX: u16 = 31;
 
     // When ticket is for the next year
-    let next_year_test = |window, year| {
+    let next_year_test = |window, year: i32| {
         for offset in 0..window {
             for day in 1..window {
                 assert_eq!(
                     ShortDate::new(Month::January, day as u8).unwrap()
                     .to_date_adapt(
-                        Date::from_calendar_date(year, time::Month::December, 31 - offset as u8).unwrap(),
+                        Date::new(year as i16, 12, 31 - offset as i8).unwrap(),
                         window as u8
                     ),
-                    Ok(Date::from_calendar_date(year + 1, time::Month::January, day as u8).unwrap())
+                    Ok(Date::new((year + 1) as i16, 1, day as i8).unwrap())
                 );
             }
         }
     };
 
     // When ticket is for the previous year
-    let prev_year_test = |window, year| {
+    let prev_year_test = |window, year: i32| {
         for offset in 1..window {
             for day in (1..window).map(|x| 31 - x + 1) {
                 assert_eq!(
                     ShortDate::new(Month::December, day as u8).unwrap()
                     .to_date_adapt(
-                        Date::from_calendar_date(year, time::Month::January, offset as u8).unwrap(),
+                        Date::new(year as i16, 1, offset as i8).unwrap(),
                         window as u8
                     ),
-                    Ok(Date::from_calendar_date(year - 1, time::Month::December, day as u8).unwrap())
+                    Ok(Date::new((year - 1) as i16, 12, day as i8).unwrap())
                 );
             }
         }
@@ -334,7 +340,12 @@ fn test_time_valid() {
                     assert!(time.is_ok());
                     assert_eq!(
                         time.unwrap().to_time(),
-                        time::Time::from_hms(hour, minute, second.unwrap_or_default()).unwrap()
+                        jiff::civil::Time::new(
+                            hour as i8,
+                            minute as i8,
+                            second.unwrap_or_default() as i8,
+                            0,
+                        ).unwrap()
                     );
 
                     if let (Some(tz), Some(second)) = (tz_str, second) {

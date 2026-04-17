@@ -1,6 +1,6 @@
 use std::str;
 
-use time::Date;
+use jiff::civil::Date;
 
 mod encode;
 
@@ -206,13 +206,14 @@ pub fn fix_length(src: &str) -> std::result::Result<String, FixError> {
     Ok(tmp)
 }
 
+#[allow(dead_code)]
 fn verify_bagtag(value: &str) -> BcbpResult<()> {
     let value = value.trim();
     let field = Field::BaggageTagNumbers;
     let max = field.len();
 
     if value.len() > max {
-        return Err(Error::FieldLengthExceeded { field, max });
+        Err(Error::FieldLengthExceeded { field, max })
     } else if !value.as_bytes().iter().all(u8::is_ascii_digit) {
         Err(Error::DigitsExpected)
     } else {

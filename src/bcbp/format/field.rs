@@ -68,6 +68,14 @@ macro_rules! define_fields {
                 FIELD_META[self.idx()].len as usize
             }
 
+            /// Returns `true` when this field has zero length in metadata.
+            ///
+            /// For BCBP this means a variable-length field.
+            #[inline]
+            pub const fn is_empty(self) -> bool {
+                self.len() == 0
+            }
+
             /// Human-readable name as specified in the Implementation Guide.
             ///
             /// # Examples

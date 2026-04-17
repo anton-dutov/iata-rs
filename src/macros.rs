@@ -145,6 +145,7 @@ macro_rules! gen_set {
 //     Ok(())
 // }
 
+#[allow(unused_macros)]
 macro_rules! gen_set_str {
     ($method_name:ident for $field_name:ident with len $to:literal) => {
         gen_set_str!($method_name for $field_name with len 1..=$to);
@@ -193,4 +194,5 @@ macro_rules! gen_set_str {
 
 pub(crate) use gen_get;
 pub(crate) use gen_set;
+#[allow(unused_imports)]
 pub(crate) use gen_set_str;

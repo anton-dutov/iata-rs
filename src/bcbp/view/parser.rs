@@ -11,7 +11,7 @@ use crate::bcbp::{
 };
 
 /// Parses a boarding pass from `input_data` representable as a string reference.
-pub fn decode_bcbp_view<'a>(input: &'_ str) -> BcbpResult<BcbpView<'_>> {
+pub fn decode_bcbp_view(input: &str) -> BcbpResult<BcbpView<'_>> {
     if !input.is_ascii() {
         return Err(Error::InvalidCharacters);
     }
@@ -32,13 +32,13 @@ pub fn decode_bcbp_view<'a>(input: &'_ str) -> BcbpResult<BcbpView<'_>> {
         return Err(Error::InvalidNumberOfLegs);
     }
 
-    let mut bcbp = BcbpView::default();
-
-    // Item 11: Passenger Name, 20 characters, left justified, space filled.
-    bcbp.pax_name = cursor.read_str(Field::PassengerName)?;
-
-    // Item 253: Electronic Ticket Indicator, 1 character, 'E' for electronic ticket, blank for none.
-    bcbp.eticket_flag = cursor.read_char(Field::ElectronicTicketIndicator)?;
+    let mut bcbp = BcbpView {
+        // Item 11: Passenger Name, 20 characters, left justified, space filled.
+        pax_name: cursor.read_str(Field::PassengerName)?,
+        // Item 253: Electronic Ticket Indicator, 1 character, 'E' for electronic ticket, blank for none.
+        eticket_flag: cursor.read_char(Field::ElectronicTicketIndicator)?,
+        ..Default::default()
+    };
 
     let mut leg = decode_leg(&mut cursor)?;
 
@@ -118,30 +118,24 @@ fn decode_conditional<'a>(
             bcbp.source_of_boarding_pass_issuance =
                 unique_chunk.read_char_opt(Field::SourceOfBoardingPassIssuance)?;
             // Item 22: Date of Issue of Boarding Pass, 4 characters
-            bcbp.date_of_issue_of_boarding_pass = unique_chunk
-                .read_str_opt(Field::DateOfIssueOfBoardingPass)?
-                .map(Into::into);
+            bcbp.date_of_issue_of_boarding_pass =
+                unique_chunk.read_str_opt(Field::DateOfIssueOfBoardingPass)?;
             // Item 16: Document Type, 1 character
             bcbp.doc_type = unique_chunk.read_char_opt(Field::DocumentType)?;
             // Item 21: Airline Designator of Boarding Pass Issuer, 3 characters
             bcbp.airline_designator_of_boarding_pass_issuer = unique_chunk
-                .read_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?
-                .map(Into::into);
+                .read_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?;
 
             // Item 23: Baggage Tag License Plate, 13 characters
-            bcbp.baggage_tags = unique_chunk
-                .read_str_opt(Field::BaggageTagNumbers)?
-                .map(Into::into);
+            bcbp.baggage_tags = unique_chunk.read_str_opt(Field::BaggageTagNumbers)?;
 
             // Item 31: First Non-Consecutive Baggage Tag License Plate, 13 characters
             bcbp.nonconsecutive_baggage_tags1 = unique_chunk
-                .read_str_opt(Field::FirstNonConsecutiveBaggageTagNumbers)?
-                .map(Into::into);
+                .read_str_opt(Field::FirstNonConsecutiveBaggageTagNumbers)?;
 
             // Item 32: Second Non-Consecutive Baggage Tag License Plate, 13 characters
             bcbp.nonconsecutive_baggage_tags2 = unique_chunk
-                .read_str_opt(Field::SecondNonConsecutiveBaggageTagNumbers)?
-                .map(Into::into);
+                .read_str_opt(Field::SecondNonConsecutiveBaggageTagNumbers)?;
         }
     }
 
@@ -151,39 +145,29 @@ fn decode_conditional<'a>(
 }
 
 fn decode_leg<'a>(cursor: &mut Cursor<'a>) -> BcbpResult<Leg<'a>> {
-    let mut leg = Leg::default();
-
-    // Item 7: Operating Carrier PNR Code, 7 characters, left justified, space filled.
-    leg.pnr = cursor.read_str(Field::OperatingCarrierPnrCode)?;
-
-    // Item 26: From City Airport Code, 3 characters, IATA airport code.
-    leg.src_airport = cursor.read_str(Field::FromCityAirportCode)?;
-
-    // Item 38: To City Airport Code, 3 characters, IATA airport code.
-    leg.dst_airport = cursor.read_str(Field::ToCityAirportCode)?;
-
-    // Item 42: Operating Carrier Designator, 3 characters, IATA airline designator.
-    leg.operating_carrier = cursor.read_str(Field::OperatingCarrier)?;
-
-    // Item 43: Flight Number, 5 characters, numeric, right justified, zero filled.
-    leg.flight_number = cursor.read_str(Field::FlightNumber)?;
-
-    // Item 46: Date of Flight, 3 characters, Julian date, DDD.
-    leg.flight_day = cursor.read_str(Field::DateOfFlight)?;
-
-    // Item 71: Compartment Code, 1 character, class of service.
-    leg.compartment = cursor.read_char(Field::CompartmentCode)?;
-
-    // Item 104: Seat Number, 4 characters, left justified, space filled.
-    leg.seat = cursor.read_str(Field::SeatNumber)?;
-
-    // Item 107: Check-in Sequence Number, 5 characters, numeric, right justified, zero filled.
-    leg.checkin_sequence = cursor.read_str(Field::CheckInSequenceNumber)?;
-
-    // Item 113: Passenger Status, 1 character
-    leg.pax_status = cursor.read_char(Field::PassengerStatus)?;
-
-    Ok(leg)
+    Ok(Leg {
+        // Item 7: Operating Carrier PNR Code, 7 characters, left justified, space filled.
+        pnr: cursor.read_str(Field::OperatingCarrierPnrCode)?,
+        // Item 26: From City Airport Code, 3 characters, IATA airport code.
+        src_airport: cursor.read_str(Field::FromCityAirportCode)?,
+        // Item 38: To City Airport Code, 3 characters, IATA airport code.
+        dst_airport: cursor.read_str(Field::ToCityAirportCode)?,
+        // Item 42: Operating Carrier Designator, 3 characters, IATA airline designator.
+        operating_carrier: cursor.read_str(Field::OperatingCarrier)?,
+        // Item 43: Flight Number, 5 characters, numeric, right justified, zero filled.
+        flight_number: cursor.read_str(Field::FlightNumber)?,
+        // Item 46: Date of Flight, 3 characters, Julian date, DDD.
+        flight_day: cursor.read_str(Field::DateOfFlight)?,
+        // Item 71: Compartment Code, 1 character, class of service.
+        compartment: cursor.read_char(Field::CompartmentCode)?,
+        // Item 104: Seat Number, 4 characters, left justified, space filled.
+        seat: cursor.read_str(Field::SeatNumber)?,
+        // Item 107: Check-in Sequence Number, 5 characters, numeric, right justified, zero filled.
+        checkin_sequence: cursor.read_str(Field::CheckInSequenceNumber)?,
+        // Item 113: Passenger Status, 1 character
+        pax_status: cursor.read_char(Field::PassengerStatus)?,
+        ..Default::default()
+    })
 }
 
 fn decode_leg_conditional<'a>(span: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpResult<()> {
@@ -196,14 +180,11 @@ fn decode_leg_conditional<'a>(span: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpR
     let mut repeated = span.read_chunk(len)?;
 
     // Item 142: Airline Numeric Code, 3 characters
-    leg.airline_numeric_code = repeated
-        .read_str_opt(Field::AirlineNumericCode)?
-        .map(Into::into);
+    leg.airline_numeric_code = repeated.read_str_opt(Field::AirlineNumericCode)?;
 
     // Item 143: Document Form/Serial Number, 10 characters
     leg.document_form_serial_number = repeated
-        .read_str_opt(Field::DocumentFormSerialNumber)?
-        .map(Into::into);
+        .read_str_opt(Field::DocumentFormSerialNumber)?;
 
     // Item 18: Selectee Indicator, 1 character
     leg.selectee_indicator = repeated.read_char_opt(Field::SelecteeIndicator)?;
@@ -213,27 +194,22 @@ fn decode_leg_conditional<'a>(span: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpR
         repeated.read_char_opt(Field::InternationalDocumentVerification)?;
 
     // Item 19: Marketing Carrier Designator, 3 characters
-    leg.marketing_carrier = repeated
-        .read_str_opt(Field::MarketingCarrier)?
-        .map(Into::into);
+    leg.marketing_carrier = repeated.read_str_opt(Field::MarketingCarrier)?;
 
     // Item 20: Frequent Flyer Airline Designator, 3 characters
     leg.frequent_flyer_airline = repeated
-        .read_str_opt(Field::FrequentFlyerAirline)?
-        .map(Into::into);
+        .read_str_opt(Field::FrequentFlyerAirline)?;
 
     // Item 236: Frequent Flyer Number, 16 characters
     leg.frequent_flyer_number = repeated
-        .read_str_opt(Field::FrequentFlyerNumber)?
-        .map(Into::into);
+        .read_str_opt(Field::FrequentFlyerNumber)?;
 
     // Item 89: ID/AD Indicator, 1 character
     leg.id_ad_indicator = repeated.read_char_opt(Field::IdAdIndicator)?;
 
     // Item 118: Free Baggage Allowance, 3 characters
     leg.free_baggage_allowance = repeated
-        .read_str_opt(Field::FreeBaggageAllowance)?
-        .map(Into::into);
+        .read_str_opt(Field::FreeBaggageAllowance)?;
 
     // Item 254: Fast Track, 1 character
     leg.fast_track = repeated.read_char_opt(Field::FastTrack)?;
@@ -256,10 +232,12 @@ fn decode_security_data(cursor: &mut Cursor<'_>) -> BcbpResult<SecurityData> {
         return Err(Error::InvalidPrefix(Field::BeginningOfSecurityData, prefix));
     }
 
-    let mut data = SecurityData::default();
-
     // Item 28: Type of Security Data, 1 character, vendor specific.
-    data.kind = cursor.read_char(Field::TypeOfSecurityData)?;
+    let kind = cursor.read_char(Field::TypeOfSecurityData)?;
+    let mut data = SecurityData {
+        kind,
+        ..Default::default()
+    };
 
     // Scan the length of the security data.
     if cursor.remaining() > 0 {
@@ -267,7 +245,7 @@ fn decode_security_data(cursor: &mut Cursor<'_>) -> BcbpResult<SecurityData> {
         let len = cursor.read_usize(Field::LengthOfSecurityData, 16)?;
         if len > 0 {
             // Item 30: Security Data, up to 512 characters, vendor specific.
-            let body = cursor.read_str_len(Field::SecurityData, len as usize)?;
+            let body = cursor.read_str_len(Field::SecurityData, len)?;
             data.data = Some(body.into());
         }
     }

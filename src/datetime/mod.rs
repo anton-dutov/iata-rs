@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 mod day_of_year;
 mod error;
@@ -10,7 +10,11 @@ pub use error::Error;
 pub use month::Month;
 pub use tz_tag::TzTag;
 
-use time::{Date, OffsetDateTime, PrimitiveDateTime, UtcOffset};
+use jiff::{
+    civil::{Date, DateTime, Time as JiffTime},
+    tz::{Offset, TimeZone},
+    Timestamp, ToSpan,
+};
 
 const MAX_ADAPT_DAYS: u8 = 31;
 
@@ -88,14 +92,14 @@ impl ShortDate {
         self.month
     }
 
-    /// Converts the date into [`time::Date`].
+    /// Converts the date into [`jiff::civil::Date`].
     ///
     /// # Errors
     ///
     /// Returns [`Error::OverflowNotLeapYear`] if `year` is not a leap year and `self`
     /// turns out to contain a date that can exist only in a leap year.
     pub fn to_date(&self, year: i32) -> Result<Date, Error> {
-        Date::from_calendar_date(year, self.month.into(), self.day)
+        Date::new(year as i16, self.month.into(), self.day as i8)
             // Since all months are correct, the thing could only error if
             // we got 29th of February, when the year is not a leap one.
             .map_err(|_| Error::OverflowNotLeapYear)
@@ -106,8 +110,8 @@ impl ShortDate {
     ///
     /// For more information about algorithm and some examples, see
     /// [`DayOfYear::to_date_adapt()`].
-    pub fn to_date_adapt_year(&self, offset: UtcOffset, days: u8) -> Result<Date, Error> {
-        let now = OffsetDateTime::now_utc().to_offset(offset);
+    pub fn to_date_adapt_year(&self, offset: Offset, days: u8) -> Result<Date, Error> {
+        let now = Timestamp::now().to_zoned(TimeZone::fixed(offset));
 
         self.to_date_adapt(now.date(), days)
     }
@@ -123,16 +127,18 @@ impl ShortDate {
             return Err(Error::InvalidAdaptRange(days));
         }
 
-        let mut year = for_date.year();
+        let mut year: i32 = for_date.year() as i32;
+        let for_month = for_date.month();
+        let for_day = for_date.day() as u8;
 
-        if for_date.month() == time::Month::December
-            && for_date.day() > 31 - days
+        if for_month == 12
+            && for_day > 31 - days
             && self.month == January
             && self.day < days
         {
             year += 1;
-        } else if for_date.month() == time::Month::January
-            && for_date.day() < days
+        } else if for_month == 1
+            && for_day < days
             && self.month == December
             && self.day > 31 - days
         {
@@ -147,9 +153,9 @@ impl ShortDate {
     }
 }
 
-impl ToString for ShortDate {
-    fn to_string(&self) -> String {
-        format!("{:02}{}", self.day, self.month.as_str())
+impl fmt::Display for ShortDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:02}{}", self.day, self.month.as_str())
     }
 }
 
@@ -199,9 +205,9 @@ impl Time {
     /// # Errors
     ///
     /// * Returns [`Error::InvalidHourValue`] if `hour` isn't in the `0..24` range.
-    /// * Returns [`Error::InvalidMinuteValue`] if `minute` isn't in the `0..60` range.
+    /// * Returns [`Error::InvalidMinuteValue`] if `minute` isn't in the `0..=59` range.
     /// * Returns [`Error::InvalidSecondValue`] if `second` is [`Some`] and the value isn't
-    /// in the `0..60` range.
+    ///   in the `0..=59` range.
     pub fn new(hour: u8, minute: u8, second: Option<u8>, timezone: TzTag) -> Result<Self, Error> {
         if hour > 23 {
             return Err(Error::InvalidHourValue(hour));
@@ -245,9 +251,15 @@ impl Time {
         self.timezone
     }
 
-    /// Converts this sturct into [`time::Time`].
-    pub fn to_time(&self) -> time::Time {
-        time::Time::from_hms(self.hour, self.minute, self.second.unwrap_or_default()).unwrap()
+    /// Converts this struct into [`jiff::civil::Time`].
+    pub fn to_time(&self) -> JiffTime {
+        JiffTime::new(
+            self.hour as i8,
+            self.minute as i8,
+            self.second.unwrap_or_default() as i8,
+            0,
+        )
+        .unwrap()
     }
 
     /// Parses the time from a "short string" -- a string of format
@@ -290,6 +302,9 @@ impl Time {
     ///   integer -- [`Error::InvalidHour`] is returned.
     /// * If the second two bytes of the string can't be parsed as a non-negative decimal
     ///   integer -- [`Error::InvalidMinute`] is returned.
+    /// * If the seconds part is present and can't be parsed as a non-negative decimal
+    ///   integer -- [`Error::InvalidSecond`] is returned.
+    /// * If timezone suffix is not recognized -- [`Error::InvalidTimezoneTag`] is returned.
     /// * If the parsed values don't denote a valid time -- same errors as in [`Self::new()`] are
     ///   returned.
     pub fn from_full_str(s: &str) -> Result<Self, Error> {
@@ -390,7 +405,7 @@ impl ShortDateTime {
     }
 
     /// Constructs a new instance of [`ShortDateTime`], with an optional time. The
-    /// [`None`] value is mapped into `[Time::default()]`.
+    /// [`None`] value is mapped into [`Time::default()`].
     pub fn new_time_opt(date: ShortDate, time: Option<Time>) -> Self {
         let time = time.unwrap_or_default();
 
@@ -432,17 +447,17 @@ impl ShortDateTime {
         self.time.timezone
     }
 
-    /// Converts the struct into [`time::PrimitiveDateTime`], using the supplied
+    /// Converts the struct into [`jiff::civil::DateTime`], using the supplied
     /// year.
     ///
     /// # Errors
     ///
     /// This method returns an error only if `self.date.to_date()` fails. For more
     /// information see [`ShortDate::to_date()`].
-    pub fn to_datetime(&self, year: i32) -> Result<PrimitiveDateTime, Error> {
+    pub fn to_datetime(&self, year: i32) -> Result<DateTime, Error> {
         self.date
             .to_date(year)
-            .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
+            .map(|date| date.to_datetime(self.time.to_time()))
     }
 
     /// Tries to figure out what year the date-time belongs to. Equivalent to
@@ -452,22 +467,22 @@ impl ShortDateTime {
     /// [`DayOfYear::to_date_adapt()`].
     pub fn to_datetime_adapt_year(
         &self,
-        offset: UtcOffset,
+        offset: Offset,
         days: u8,
-    ) -> Result<PrimitiveDateTime, Error> {
+    ) -> Result<DateTime, Error> {
         self.date
             .to_date_adapt_year(offset, days)
-            .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
+            .map(|date| date.to_datetime(self.time.to_time()))
     }
 
     /// Tries to figure out what year the date-time belongs to.
     ///
     /// For more information about algorithm and some examples, see
     /// [`DayOfYear::to_date_adapt()`].
-    pub fn to_datetime_adapt(&self, for_date: Date, days: u8) -> Result<PrimitiveDateTime, Error> {
+    pub fn to_datetime_adapt(&self, for_date: Date, days: u8) -> Result<DateTime, Error> {
         self.date
             .to_date_adapt(for_date, days)
-            .map(|date| PrimitiveDateTime::new(date, self.time.to_time()))
+            .map(|date| date.to_datetime(self.time.to_time()))
     }
 }
 

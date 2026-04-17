@@ -62,7 +62,7 @@ impl<'a> Cursor<'a> {
     pub fn read_str_len(&mut self, field: Field, len: usize) -> BcbpResult<&'a str> {
         assert!(len > 0, "Attempting to scan zero bytes of data.");
         assert!(
-            field.len() == 0 || field.len() == len,
+            field.is_empty() || field.len() == len,
             "Length is not compatible the intrinsic length of the field."
         );
         if self.remaining() < len {
@@ -87,7 +87,7 @@ impl<'a> Cursor<'a> {
     /// Will panic if `field` is variable-length.
     pub fn read_str(&mut self, field: Field) -> BcbpResult<&'a str> {
         assert!(
-            field.len() != 0,
+            !field.is_empty(),
             "Attempting to scan a variable-length field as fixed-length."
         );
         self.read_str_len(field, field.len())
@@ -101,7 +101,7 @@ impl<'a> Cursor<'a> {
     /// Will panic if `field` is variable-length.
     pub fn read_str_opt(&mut self, field: Field) -> BcbpResult<Option<&'a str>> {
         assert!(
-            field.len() != 0,
+            !field.is_empty(),
             "Attempting to scan a variable-length field as fixed-length."
         );
         if self.is_eof() {
@@ -125,7 +125,7 @@ impl<'a> Cursor<'a> {
         let value = value
             .chars()
             .next()
-            .ok_or_else(|| Error::UnexpectedEndOfInput(field))?;
+            .ok_or(Error::UnexpectedEndOfInput(field))?;
 
         Ok(value)
     }

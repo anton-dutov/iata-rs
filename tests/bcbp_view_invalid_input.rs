@@ -5,6 +5,8 @@
 
 //! Synthetic test cases with invalid boarding pass data.
 
+#![cfg(feature = "with-bcbp")]
+
 use iata::bcbp::{format::Field, view::*, Error};
 
 #[test]

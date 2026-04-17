@@ -49,22 +49,22 @@ impl Month {
     }
 }
 
-impl From<Month> for time::Month {
+impl From<Month> for i8 {
     fn from(m: Month) -> Self {
         use Month::*;
         match m {
-            January => time::Month::January,
-            February => time::Month::February,
-            March => time::Month::March,
-            April => time::Month::April,
-            May => time::Month::May,
-            June => time::Month::June,
-            July => time::Month::July,
-            August => time::Month::August,
-            September => time::Month::September,
-            October => time::Month::October,
-            November => time::Month::November,
-            December => time::Month::December,
+            January => 1,
+            February => 2,
+            March => 3,
+            April => 4,
+            May => 5,
+            June => 6,
+            July => 7,
+            August => 8,
+            September => 9,
+            October => 10,
+            November => 11,
+            December => 12,
         }
     }
 }

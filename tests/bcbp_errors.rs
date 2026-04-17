@@ -1,3 +1,5 @@
+#![cfg(feature = "with-bcbp")]
+
 use std::str::from_utf8;
 
 use iata::bcbp::{format::Field, *};

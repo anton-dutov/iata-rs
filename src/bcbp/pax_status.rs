@@ -39,27 +39,26 @@ pub enum PaxStatus {
 impl From<char> for PaxStatus {
     #[inline]
     fn from(value: char) -> Self {
-        use PaxStatus::*;
         let v = if value.is_ascii_lowercase() {
             value.to_ascii_uppercase()
         } else {
             value
         };
         match v {
-            ' ' => None,
-            '0' => NotCheckedIn,
-            '1' => CheckedIn,
-            '2' => BaggageCheckedNotCI,
-            '3' => BaggageAndPaxCheckedIn,
-            '4' => PaxPassedSecurity,
-            '5' => PassedGateExitCouponUsed,
-            '6' => Transit,
-            '7' => Standby,
-            '8' => RevalidationDone,
-            '9' => OriginalBoardingDataUsed,
-            'A' => UpDownGradingRequired,
-            'B'..='Z' => Reserved(v),
-            other => Other(other),
+            ' ' => Self::None,
+            '0' => Self::NotCheckedIn,
+            '1' => Self::CheckedIn,
+            '2' => Self::BaggageCheckedNotCI,
+            '3' => Self::BaggageAndPaxCheckedIn,
+            '4' => Self::PaxPassedSecurity,
+            '5' => Self::PassedGateExitCouponUsed,
+            '6' => Self::Transit,
+            '7' => Self::Standby,
+            '8' => Self::RevalidationDone,
+            '9' => Self::OriginalBoardingDataUsed,
+            'A' => Self::UpDownGradingRequired,
+            'B'..='Z' => Self::Reserved(v),
+            other => Self::Other(other),
         }
     }
 }
@@ -67,21 +66,20 @@ impl From<char> for PaxStatus {
 impl From<PaxStatus> for char {
     #[inline]
     fn from(s: PaxStatus) -> Self {
-        use PaxStatus::*;
         match s {
-            None => ' ',
-            NotCheckedIn => '0',
-            CheckedIn => '1',
-            BaggageCheckedNotCI => '2',
-            BaggageAndPaxCheckedIn => '3',
-            PassedSecurity => '4',
-            PassedGateExitCouponUsed => '5',
-            Transit => '6',
-            Standby => '7',
-            RevalidationDone => '8',
-            OriginalBoardingDataUsed => '9',
-            UpDownGradingRequired => 'A',
-            Reserved(ch) | Other(ch) => ch,
+            PaxStatus::None => ' ',
+            PaxStatus::NotCheckedIn => '0',
+            PaxStatus::CheckedIn => '1',
+            PaxStatus::BaggageCheckedNotCI => '2',
+            PaxStatus::BaggageAndPaxCheckedIn => '3',
+            PaxStatus::PaxPassedSecurity => '4',
+            PaxStatus::PassedGateExitCouponUsed => '5',
+            PaxStatus::Transit => '6',
+            PaxStatus::Standby => '7',
+            PaxStatus::RevalidationDone => '8',
+            PaxStatus::OriginalBoardingDataUsed => '9',
+            PaxStatus::UpDownGradingRequired => 'A',
+            PaxStatus::Reserved(ch) | PaxStatus::Other(ch) => ch,
         }
     }
 }

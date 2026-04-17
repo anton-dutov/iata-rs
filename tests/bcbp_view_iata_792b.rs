@@ -6,6 +6,8 @@
 //! Test cases derived from the examples listed in IATA Resolution 792
 //! Attachment B.
 
+#![cfg(feature = "with-bcbp")]
+
 use iata::bcbp::view::*;
 
 #[test]

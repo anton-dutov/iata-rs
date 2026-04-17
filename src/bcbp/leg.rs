@@ -113,7 +113,7 @@ impl Leg {
     }
 
     pub fn set_flight_date(&mut self, date: Date) -> BcbpResult<()> {
-        self.set_flight_day(Some(DayOfYear::new(date.ordinal())?))?;
+        self.set_flight_day(Some(DayOfYear::new(date.day_of_year() as u16)?))?;
 
         Ok(())
     }

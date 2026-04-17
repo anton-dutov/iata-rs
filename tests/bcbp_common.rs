@@ -1,3 +1,5 @@
+#![cfg(feature = "with-bcbp")]
+
 use iata::{bcbp::*, datetime::DayOfYear};
 use serde::Deserialize;
 

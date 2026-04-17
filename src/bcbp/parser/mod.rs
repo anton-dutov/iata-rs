@@ -143,7 +143,7 @@ fn decode_conditional(cursor: &mut Cursor, bcbp: &mut Bcbp, leg: &mut Leg) -> Bc
             bcbp.set_bagtags(
                 unique
                     .read_str_opt(Field::BaggageTagNumbers)?
-                    .map(|x| x.trim().into()),
+                    .map(|x| x.trim()),
             )?;
 
             // BCBP v4
@@ -151,14 +151,14 @@ fn decode_conditional(cursor: &mut Cursor, bcbp: &mut Bcbp, leg: &mut Leg) -> Bc
             bcbp.set_nonconsecutive_bagtag1(
                 unique
                     .read_str_opt(Field::FirstNonConsecutiveBaggageTagNumbers)?
-                    .map(|x| x.trim().into()),
+                    .map(|x| x.trim()),
             )?;
 
             // Item 32: Second Non-Consecutive Baggage Tag License Plate, 13 characters
             bcbp.set_nonconsecutive_bagtag2(
                 unique
                     .read_str_opt(Field::SecondNonConsecutiveBaggageTagNumbers)?
-                    .map(|x| x.trim().into()),
+                    .map(|x| x.trim()),
             )?;
         }
     }
@@ -282,7 +282,7 @@ fn decode_leg_conditional(span: &mut Cursor, leg: &mut Leg) -> BcbpResult<()> {
         let len = span.remaining();
         // Item 4: Airline Individual Use
         let body = span.read_str_len(Field::AirlineIndividualUse, len)?;
-        leg.set_variable_data(Some(body.into()))?;
+        leg.set_variable_data(Some(body))?;
     }
     Ok(())
 }
@@ -315,10 +315,7 @@ fn decode_security_data(input: &mut Cursor) -> BcbpResult<Option<SecurityData>> 
 }
 
 fn u16_from_str_force(src: &str, radix: u32) -> u16 {
-    match u16::from_str_radix(src.trim().trim_start_matches('0'), radix) {
-        Ok(v) => v,
-        _ => 0,
-    }
+    u16::from_str_radix(src.trim().trim_start_matches('0'), radix).unwrap_or_default()
 }
 
 fn u32_from_str_opt(src: &str, radix: u32) -> Option<u16> {

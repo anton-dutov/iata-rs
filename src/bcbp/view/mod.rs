@@ -53,21 +53,21 @@ impl Leg<'_> {
     /// This is the Passenger Name Record used to identify the booking
     /// in the reservation system of the operating carrier.
     pub fn pnr(&self) -> &str {
-        &self.pnr
+        self.pnr
     }
 
     /// Three-letter or four-letter IATA code of the origin airport.
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn src_airport(&self) -> &str {
-        &self.src_airport
+        self.src_airport
     }
 
     /// Three-letter or four-letter IATA code of the destination airport.
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn dst_airport(&self) -> &str {
-        &self.dst_airport
+        self.dst_airport
     }
 
     /// Airline code of the marketing carrier, which can be the same as the operating carrier.
@@ -76,7 +76,7 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn marketing_carrier(&self) -> Option<&str> {
-        self.marketing_carrier.as_deref()
+        self.marketing_carrier
     }
 
     /// Airline code associated with the frequent flyer number.
@@ -85,7 +85,7 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn frequent_flyer_airline(&self) -> Option<&str> {
-        self.frequent_flyer_airline.as_deref()
+        self.frequent_flyer_airline
     }
 
     /// 2 character or 3 letter airline designator followed by up to 13 numerics or
@@ -93,7 +93,7 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn frequent_flyer_number(&self) -> Option<&str> {
-        self.frequent_flyer_number.as_deref()
+        self.frequent_flyer_number
     }
 
     /// Values are defined in Resolution 792.
@@ -109,21 +109,21 @@ impl Leg<'_> {
     /// Spaces indicate the field is not set.
     /// Any other values are invalid.
     pub fn operating_carrier(&self) -> &str {
-        &self.operating_carrier
+        self.operating_carrier
     }
 
     /// A flight number comprised of four numeric characters followed by an optional
     /// alphabetic suffix. This refers to the operating carrier.
     /// Spaces indicate the field is not set.
     pub fn flight_number(&self) -> &str {
-        &self.flight_number
+        self.flight_number
     }
 
     /// The Julian date code for the flight. The 3-digit number reflects the
     /// day of the year beginning with '0'. The year is to be inferred.
     /// Spaces indicate the field is not set.
     pub fn flight_day(&self) -> &str {
-        &self.flight_day
+        self.flight_day
     }
 
     /// IATA compartment code indiciating the class of service.
@@ -139,14 +139,14 @@ impl Leg<'_> {
     /// In the case of infants, can be any 4 ASCII characters, often 'INF '.
     /// Spaces indicate the field is not set.
     pub fn seat(&self) -> &str {
-        &self.seat
+        self.seat
     }
 
     /// Check-in sequence number.
     /// Usually 4 numerics followed by an optional alpha or blank, however in the case of
     /// infants, the format is defined by the host system and can be any 5 ASCII characters.
     pub fn checkin_sequence(&self) -> &str {
-        &self.checkin_sequence
+        self.checkin_sequence
     }
 
     /// The status of the passenger.
@@ -160,14 +160,14 @@ impl Leg<'_> {
     /// This is also the first three digits of the eTicket number.
     /// Spaces indicate the field is not set.
     pub fn airline_numeric_code(&self) -> Option<&str> {
-        self.airline_numeric_code.as_deref()
+        self.airline_numeric_code
     }
 
     /// The ten-digit DSN.
     /// This is also the last ten digits of the eTicket number.
     /// Spaces indicate the field is not set.
     pub fn document_form_serial_number(&self) -> Option<&str> {
-        self.document_form_serial_number.as_deref()
+        self.document_form_serial_number
     }
 
     /// This field is used by certain agencies to demarcate individuals requiring extra screening.
@@ -196,13 +196,13 @@ impl Leg<'_> {
     /// indicating how much baggage passengers are able to take with them free of charge.
     /// Spaces indicate the field is not set.
     pub fn free_baggage_allowance(&self) -> Option<&str> {
-        self.free_baggage_allowance.as_deref()
+        self.free_baggage_allowance
     }
 
     /// Optional unstructured data for airline individual use.
     /// Content frequently includes frequent flyer tier, passenger preferences, etc.
     pub fn airline_individual_use(&self) -> Option<&str> {
-        self.airline_individual_use.as_deref()
+        self.airline_individual_use
     }
 }
 
@@ -248,7 +248,7 @@ impl<'a> BcbpView<'a> {
 
     /// All legs encoded into the boarding pass.
     /// At least one needs to be present to form a valid boarding pass.
-    pub fn legs(&self) -> &[Leg] {
+    pub fn legs(&self) -> &[Leg<'_>] {
         &self.legs
     }
 
@@ -278,7 +278,7 @@ impl<'a> BcbpView<'a> {
     /// special handling may be required.
     /// Spaces indicate the field is not set.
     pub fn pax_name(&self) -> &str {
-        &self.pax_name
+        self.pax_name
     }
 
     /// This field reflects channel in which the customer initiated check-in.
@@ -303,7 +303,7 @@ impl<'a> BcbpView<'a> {
     ///   "6366" represaents December 31, 2016 (a leap year).
     /// Spaces indicate the field is not set.
     pub fn date_of_issue_of_boarding_pass(&self) -> Option<&str> {
-        self.date_of_issue_of_boarding_pass.as_deref()
+        self.date_of_issue_of_boarding_pass
     }
 
     /// The type of the document, 'B' indicating a boarding pass.
@@ -317,7 +317,7 @@ impl<'a> BcbpView<'a> {
     /// are permitted and the string is left-justified and space padded.
     /// Spaces indicate the field is not set.
     pub fn airline_designator_of_boarding_pass_issuer(&self) -> Option<&str> {
-        self.airline_designator_of_boarding_pass_issuer.as_deref()
+        self.airline_designator_of_boarding_pass_issuer
     }
 
     /// This field allows carriers to populate baggage tag numbers and the number
@@ -328,20 +328,20 @@ impl<'a> BcbpView<'a> {
     ///   11...13: number of consecutive bags (up to 999).
     /// Spaces indicate the field is not set.
     pub fn baggage_tags(&self) -> Option<&str> {
-        self.baggage_tags.as_deref()
+        self.baggage_tags
     }
 
     /// This field allows carriers who handle non-sequential bags to include a second set of them
     /// in the boarding pass data in in the same format as `baggage_tags`.
     /// Spaces indicate the field is not set.
     pub fn nonconsecutive_baggage_tags1(&self) -> Option<&str> {
-        self.nonconsecutive_baggage_tags1.as_deref()
+        self.nonconsecutive_baggage_tags1
     }
 
     /// This field allows carriers who handle non-sequential bags to include a third set of them
     /// in the boarding pass data in in the same format as `baggage_tags`.
     /// Spaces indicate the field is not set.
     pub fn nonconsecutive_baggage_tags2(&self) -> Option<&str> {
-        self.nonconsecutive_baggage_tags2.as_deref()
+        self.nonconsecutive_baggage_tags2
     }
 }

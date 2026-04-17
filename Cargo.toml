@@ -1,6 +1,6 @@
 [package]
 name = "iata"
-version = "0.9.0-alpha.2"
+version = "0.11.0-alpha.1"
 edition = "2021"
 authors = [
     "Anton Dutov <anton.dutov@gmail.com>",
@@ -16,17 +16,18 @@ categories = ["parser-implementations"]
 keywords = ["iata", "bcbp"]
 
 [features]
-with-serde = ["serde"]
+default = ["with-bcbp"]
+with-bcbp = ["dep:paste", "dep:tracing"]
+with-serde = ["serde", "jiff/serde"]
 
 [dependencies]
-tracing = "0.1"
+tracing = { version = "0.1", optional = true }
 thiserror = "2"
-time = "0.3"
-paste = "1"
+jiff = "0.2"
+paste = { version = "1", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }
 
 [dev-dependencies]
-time = { version = "0.3", features = ["macros"] }
 rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
