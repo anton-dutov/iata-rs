@@ -1,6 +1,6 @@
 #![cfg(feature = "with-bcbp")]
 
-use iata::{bcbp::*, datetime::DayOfYear};
+use iata::{bcbp::*, bcbp::format::Field, datetime::DayOfYear};
 use serde::Deserialize;
 
 const BCBP_BLANK: &str = include_str!("../test_data/bcbp_blank.json");
@@ -110,13 +110,14 @@ fn encode_bcbp_minimal() {
 
     let mut leg = Leg::default();
 
-    leg.set_pax_status(PaxStatus::CheckedIn);
+    leg.set_pax_status(PaxStatus::CheckedIn).unwrap();
     leg.set_pnr(Some("ABCDEFG")).unwrap();
     leg.set_src_airport(Some("SRC")).unwrap();
     leg.set_dst_airport(Some("DST")).unwrap();
     leg.set_operating_carrier(Some("AFL")).unwrap();
     leg.set_flight_number(Some("1234A")).unwrap();
-    leg.set_flight_day(Some(DayOfYear::new(123).unwrap()));
+    leg.set_flight_day(Some(DayOfYear::new(123).unwrap()))
+        .unwrap();
     leg.set_compartment(Some('Y')).unwrap();
     leg.set_seat(Some("999A")).unwrap();
     leg.set_checkin_sequence(Some(9876)).unwrap();
@@ -124,6 +125,39 @@ fn encode_bcbp_minimal() {
     bcbp.add_leg(leg).ok();
 
     assert_eq!(bcbp.encode_bcbp().unwrap(), test_data.raw);
+}
+
+#[test]
+fn encode_allows_9_legs() {
+    let mut bcbp = Bcbp::default();
+
+    for _ in 0..9 {
+        bcbp.add_leg(Leg::default()).unwrap();
+    }
+
+    assert!(bcbp.encode_bcbp().is_ok());
+}
+
+#[test]
+fn is_extended_empty_bcbp_no_panic() {
+    let bcbp = Bcbp::default();
+    assert!(!bcbp.is_extednded());
+}
+
+#[test]
+fn boardingpass_airline_len_enforced() {
+    let mut bcbp = Bcbp::default();
+
+    assert!(matches!(
+        bcbp.set_boardingpass_airline(Some("ABCD")),
+        Err(Error::FieldLengthExceeded {
+            field: Field::AirlineDesignatorOfBoardingPassIssuer,
+            max: 3
+        })
+    ));
+
+    assert!(bcbp.set_boardingpass_airline(Some("AB")).is_ok());
+    assert!(bcbp.set_boardingpass_airline(Some("ABC")).is_ok());
 }
 
 #[test]

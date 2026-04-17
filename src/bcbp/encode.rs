@@ -8,7 +8,7 @@ const BLANK4: &str = "    ";
 pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
     let legs_count = bcbp.legs_count();
 
-    if !(1..9).contains(&legs_count) {
+    if !(1..=9).contains(&legs_count) {
         return Err(Error::InvalidNumberOfLegs);
     }
 

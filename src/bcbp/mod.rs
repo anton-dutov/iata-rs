@@ -65,7 +65,7 @@ impl Bcbp {
     gen_set!(cond doc_type as Option<char>);
 
     gen_get!(cond boardingpass_airline as_deref Option<&str>);
-    gen_set!(cond boardingpass_airline(str::trim) as Option<&str> using Field::DocumentFormSerialNumber);
+    gen_set!(cond boardingpass_airline(str::trim) as Option<&str> using Field::AirlineDesignatorOfBoardingPassIssuer);
 
     gen_get!(cond bagtags as_deref Option<&str>);
     gen_set!(cond bagtags(str::trim) as Option<&str> using Field::BaggageTagNumbers);
@@ -87,7 +87,12 @@ impl Bcbp {
     }
 
     pub fn is_extednded(&self) -> bool {
-        self.has_conditional_data() || self.legs_count() > 1 || self.legs[0].has_conditional_data()
+        self.has_conditional_data()
+            || self.legs_count() > 1
+            || self
+                .legs
+                .first()
+                .is_some_and(Leg::has_conditional_data)
     }
 
     pub fn set_passenger_name(&mut self, value: &str) -> BcbpResult<()> {

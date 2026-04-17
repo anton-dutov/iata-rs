@@ -198,8 +198,9 @@ mod samples {
         leg.set_compartment(Some(compartment as char)).unwrap();
         leg.set_seat(Some(&seat)).unwrap();
         leg.set_checkin_sequence(Some(checking_sequence)).unwrap();
-        leg.set_flight_day(Some(flight_day));
-        leg.set_pax_status(PaxStatus::from(pax_status as char));
+        leg.set_flight_day(Some(flight_day)).unwrap();
+        leg.set_pax_status(PaxStatus::from(pax_status as char))
+            .unwrap();
         (
             leg,
             std::iter::empty()
