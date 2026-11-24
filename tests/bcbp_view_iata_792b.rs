@@ -28,7 +28,7 @@ fn example_1_m1_using_mandatory_elements_and_security_fields() {
     assert_eq!(first_leg.compartment(), 'J');
     assert_eq!(first_leg.seat(), "001A");
     assert_eq!(first_leg.checkin_sequence(), "0025 ");
-    assert_eq!(first_leg.pax_status(), '1');
+    assert_eq!(first_leg.passenger_status(), '1');
 
     assert_eq!(pass_data.security_data().kind(), '1');
     assert_eq!(pass_data.security_data().data(), Some("GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE"));
@@ -42,7 +42,7 @@ fn example_2_m2_multiple_legs() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 2);
 
-    assert_eq!(pass_data.pax_description(), Some('1'));
+    assert_eq!(pass_data.passenger_description(), Some('1'));
     assert_eq!(pass_data.source_of_check_in(), Some('W'));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('W'));
     assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6225"));
@@ -67,7 +67,7 @@ fn example_2_m2_multiple_legs() {
         assert_eq!(first_leg.compartment(), 'F');
         assert_eq!(first_leg.seat(), "001A");
         assert_eq!(first_leg.checkin_sequence(), "0025 ");
-        assert_eq!(first_leg.pax_status(), '1');
+        assert_eq!(first_leg.passenger_status(), '1');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("014"));
         assert_eq!(first_leg.document_form_serial_number(), Some("1234567890"));
@@ -94,7 +94,7 @@ fn example_2_m2_multiple_legs() {
         assert_eq!(second_leg.compartment(), 'C');
         assert_eq!(second_leg.seat(), "012C");
         assert_eq!(second_leg.checkin_sequence(), "0002 ");
-        assert_eq!(second_leg.pax_status(), '1');
+        assert_eq!(second_leg.passenger_status(), '1');
 
         assert_eq!(second_leg.airline_numeric_code(), Some("014"));
         assert_eq!(second_leg.document_form_serial_number(), Some("0987654321"));
@@ -121,7 +121,7 @@ fn appendix_b_1_1_lh_home_printed_boarding_pass() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
 
-    assert_eq!(pass_data.pax_description(), Some('0'));
+    assert_eq!(pass_data.passenger_description(), Some('0'));
     assert_eq!(pass_data.source_of_check_in(), Some('W'));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('W'));
     assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6012"));
@@ -146,7 +146,7 @@ fn appendix_b_1_1_lh_home_printed_boarding_pass() {
         assert_eq!(first_leg.compartment(), 'C');
         assert_eq!(first_leg.seat(), "004D");
         assert_eq!(first_leg.checkin_sequence(), "0001 ");
-        assert_eq!(first_leg.pax_status(), '3');
+        assert_eq!(first_leg.passenger_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("220"));
         assert_eq!(first_leg.document_form_serial_number(), Some("2364224106"));
@@ -176,7 +176,7 @@ fn appendix_b_1_2_kl_home_printed_boarding_pass() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
 
-    assert_eq!(pass_data.pax_description(), Some(' '));
+    assert_eq!(pass_data.passenger_description(), Some(' '));
     assert_eq!(pass_data.source_of_check_in(), Some(' '));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('W'));
 
@@ -192,7 +192,7 @@ fn appendix_b_1_2_kl_home_printed_boarding_pass() {
         assert_eq!(first_leg.compartment(), 'M');
         assert_eq!(first_leg.seat(), "008A");
         assert_eq!(first_leg.checkin_sequence(), "0001 ");
-        assert_eq!(first_leg.pax_status(), '3');
+        assert_eq!(first_leg.passenger_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("074"));
         assert_eq!(first_leg.document_form_serial_number(), Some("2497067621"));
@@ -207,7 +207,7 @@ fn appendix_b_2_1_bcbp_printed_at_a_kiosk_ua_ua_kiosk() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
 
-    assert_eq!(pass_data.pax_description(), Some('0'));
+    assert_eq!(pass_data.passenger_description(), Some('0'));
     assert_eq!(pass_data.source_of_check_in(), Some(' '));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('K'));
     assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6007"));
@@ -232,7 +232,7 @@ fn appendix_b_2_1_bcbp_printed_at_a_kiosk_ua_ua_kiosk() {
         assert_eq!(first_leg.compartment(), 'F');
         assert_eq!(first_leg.seat(), "002K");
         assert_eq!(first_leg.checkin_sequence(), "0303 ");
-        assert_eq!(first_leg.pax_status(), '1');
+        assert_eq!(first_leg.passenger_status(), '1');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("016"));
         assert_eq!(first_leg.document_form_serial_number(), Some("2476075898"));
@@ -261,7 +261,7 @@ fn appendix_b_3_1_mobile_bcbp_lh_lufthansa_mobile_bcbp() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
 
-    assert_eq!(pass_data.pax_description(), Some('0'));
+    assert_eq!(pass_data.passenger_description(), Some('0'));
     assert_eq!(pass_data.source_of_check_in(), Some('W'));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('M'));
     assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("6012"));
@@ -286,7 +286,7 @@ fn appendix_b_3_1_mobile_bcbp_lh_lufthansa_mobile_bcbp() {
         assert_eq!(first_leg.compartment(), 'C');
         assert_eq!(first_leg.seat(), "004D");
         assert_eq!(first_leg.checkin_sequence(), "0001 ");
-        assert_eq!(first_leg.pax_status(), '3');
+        assert_eq!(first_leg.passenger_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("220"));
         assert_eq!(first_leg.document_form_serial_number(), Some("2364224106"));

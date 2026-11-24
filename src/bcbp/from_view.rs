@@ -29,10 +29,15 @@ impl TryFrom<view::BcbpView<'_>> for Bcbp {
 
         if let Some(version) = raw.version {
             pass.set_version(nonblank(version).map(Version::try_from).transpose()?)?;
-            pass.set_pax_kind(raw.pax_description.and_then(nonblank).map(Into::into))?;
+            pass.set_passenger_description(
+                raw.passenger_description.and_then(nonblank).map(Into::into),
+            )?;
             pass.set_checkin_src(raw.source_of_check_in)?;
             pass.set_boardingpass_src(raw.source_of_boarding_pass_issuance)?;
-            pass.set_boardingpass_issued(raw.date_of_issue_of_boarding_pass.map(decimal_or_zero))?;
+            pass.set_boardingpass_issued(
+                raw.date_of_issue_of_boarding_pass
+                    .and_then(optional_decimal),
+            )?;
             pass.set_doc_type(raw.doc_type)?;
             pass.set_boardingpass_airline(raw.airline_designator_of_boarding_pass_issuer)?;
             pass.set_bagtags(raw.baggage_tags)?;
@@ -57,13 +62,10 @@ fn nonblank(value: char) -> Option<char> {
     (value != ' ').then_some(value)
 }
 
-// Legacy numeric fields accept blanks and non-numeric values as zero.
-fn decimal_or_zero(value: &str) -> u16 {
-    value
-        .trim()
-        .trim_start_matches('0')
-        .parse()
-        .unwrap_or_default()
+fn optional_decimal(value: &str) -> Option<u16> {
+    let value = value.trim();
+    // Keep the legacy zero fallback for nonempty, malformed numeric fields.
+    (!value.is_empty()).then(|| value.trim_start_matches('0').parse().unwrap_or_default())
 }
 
 fn owned_leg(raw: view::Leg<'_>) -> BcbpResult<Leg> {
@@ -73,23 +75,17 @@ fn owned_leg(raw: view::Leg<'_>) -> BcbpResult<Leg> {
     leg.set_dst_airport(Some(raw.dst_airport))?;
     leg.set_operating_carrier(Some(raw.operating_carrier))?;
     leg.set_flight_number(Some(raw.flight_number))?;
-    if !raw.flight_day.trim().is_empty() {
-        leg.set_flight_day(Some(DayOfYear::new(decimal_or_zero(raw.flight_day))?))?;
+    if let Some(day) = optional_decimal(raw.flight_day) {
+        leg.set_flight_day(Some(DayOfYear::new(day)?))?;
     }
     leg.set_compartment(nonblank(raw.compartment))?;
     leg.set_seat(Some(raw.seat))?;
-    leg.set_checkin_sequence(
-        raw.checkin_sequence
-            .trim()
-            .trim_start_matches('0')
-            .parse()
-            .ok(),
-    )?;
-    leg.set_pax_status(raw.pax_status.into())?;
+    leg.set_checkin_sequence(raw.checkin_sequence.trim().parse().ok())?;
+    leg.set_passenger_status(raw.passenger_status.into())?;
 
     // The numeric code is the first field in every nonempty repeated section.
     if let Some(code) = raw.airline_numeric_code {
-        leg.set_airline_num(Some(decimal_or_zero(code)))?;
+        leg.set_airline_num(optional_decimal(code))?;
         leg.set_doc_number(raw.document_form_serial_number)?;
         leg.set_selectee_indicator(raw.selectee_indicator.and_then(nonblank))?;
         leg.set_doc_intl_verification(raw.international_document_verification)?;

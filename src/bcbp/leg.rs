@@ -13,7 +13,8 @@ pub struct Leg {
     compartment: Option<char>,
     seat: Option<String>,
     checkin_sequence: Option<u16>,
-    pax_status: PaxStatus,
+    #[cfg_attr(feature = "with-serde", serde(rename = "pax_status"))]
+    passenger_status: PassengerStatus,
     conditional_data: Option<LegConditionalData>,
 }
 
@@ -59,16 +60,17 @@ impl Leg {
     gen_set!(seat(seat_preprocess) as Option<&str> using Field::SeatNumber);
 
     gen_get!(checkin_sequence as Option<u16>);
-    // if let Some(s) = seq {
-    //     if s > 9999 {
-    //         return Err(Error::InvalidCheckInSequence);
-    //     }
-    // }
-
     gen_set!(checkin_sequence as Option<u16>);
 
-    gen_get!(pax_status as PaxStatus);
-    gen_set!(pax_status as PaxStatus);
+    gen_get!(passenger_status as PassengerStatus);
+
+    pub fn set_passenger_status(&mut self, value: PassengerStatus) -> BcbpResult<()> {
+        if !char::from(value).is_ascii() {
+            return Err(Error::InvalidCharacters);
+        }
+        self.passenger_status = value;
+        Ok(())
+    }
 
     gen_get!(cond airline_num as Option<u16>);
 

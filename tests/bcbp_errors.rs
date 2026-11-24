@@ -9,7 +9,7 @@ mod samples {
     use std::str::from_utf8;
 
     use iata::{
-        bcbp::{Leg, PaxStatus},
+        bcbp::{Leg, PassengerStatus},
         datetime::DayOfYear,
     };
     use rand::{
@@ -139,7 +139,7 @@ mod samples {
         to_utf8(&val).to_string()
     }
 
-    fn pax_status() -> u8 {
+    fn passenger_status() -> u8 {
         let mut rng = rand::rng();
 
         (b'0'..=b'9').choose(&mut rng).unwrap()
@@ -180,13 +180,9 @@ mod samples {
         let compartment = compartment();
         let seat = seat();
         let checking_sequence: u16 = rng.random_range(1..=9999);
-        let pax_status = pax_status();
+        let passenger_status = passenger_status();
 
-        let checkin_sequence_bytes = if checking_sequence < 10000 {
-            format!("{checking_sequence:04} ").into_bytes()
-        } else {
-            checking_sequence.to_string().into_bytes()
-        };
+        let checkin_sequence_bytes = format!("{checking_sequence:04} ").into_bytes();
         let flight_day_ordinal = flight_day.ordinal();
 
         let mut leg = Leg::default();
@@ -199,7 +195,7 @@ mod samples {
         leg.set_seat(Some(&seat)).unwrap();
         leg.set_checkin_sequence(Some(checking_sequence)).unwrap();
         leg.set_flight_day(Some(flight_day)).unwrap();
-        leg.set_pax_status(PaxStatus::from(pax_status as char))
+        leg.set_passenger_status(PassengerStatus::from(passenger_status as char))
             .unwrap();
         (
             leg,
@@ -213,7 +209,7 @@ mod samples {
                 .chain(std::iter::once(compartment))
                 .chain(seat.into_bytes())
                 .chain(checkin_sequence_bytes)
-                .chain(std::iter::once(pax_status))
+                .chain(std::iter::once(passenger_status))
                 .chain(*b"00"),
         )
     }
@@ -269,15 +265,12 @@ fn error_invalid_legs_count() {
 
 #[test]
 fn error_data_length() {
-    if let Err(e) = Bcbp::decode_bcbp("") {
-        assert!(e == Error::BcbpTooShort);
-    }
-
-    if let Err(e) =
-        Bcbp::decode_bcbp("M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF")
-    {
-        assert!(e == Error::ConditionalDataLengthMismatch);
-    }
+    assert_eq!(Bcbp::decode_bcbp("").unwrap_err(), Error::BcbpTooShort);
+    let truncated = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 1FF";
+    assert_eq!(
+        Bcbp::decode_bcbp(truncated).unwrap_err(),
+        Error::ConditionalDataLengthMismatch
+    );
 }
 
 // Minimal
@@ -321,7 +314,7 @@ fn minimal() {
             assert_eq!(bcbp.leg(0).compartment(), None);
             assert_eq!(bcbp.leg(0).seat(), None);
             assert_eq!(bcbp.leg(0).checkin_sequence(), None);
-            assert_eq!(bcbp.leg(0).pax_status(), PaxStatus::None);
+            assert_eq!(bcbp.leg(0).passenger_status(), PassengerStatus::None);
 
             assert_eq!(bcbp.encode_bcbp().unwrap(), src);
         }
@@ -343,7 +336,10 @@ fn home_printed_1_1() {
     assert_eq!(bcbp.passenger_name(), "TEST/HIDDEN");
     assert_eq!(bcbp.eticket_indicator(), Some('E'));
     assert_eq!(bcbp.version(), Some(Version::Value(2)));
-    assert_eq!(bcbp.pax_kind(), Some(PaxKind::Adult));
+    assert_eq!(
+        bcbp.passenger_description(),
+        Some(PassengerDescription::Adult)
+    );
 
     assert_eq!(bcbp.checkin_src(), Some('W'));
     assert_eq!(bcbp.boardingpass_src(), Some('W'));
@@ -360,7 +356,10 @@ fn home_printed_1_1() {
     assert_eq!(bcbp.leg(0).compartment(), Some('C'));
     assert_eq!(bcbp.leg(0).seat().as_deref(), Some("4D"));
     assert_eq!(bcbp.leg(0).checkin_sequence(), Some(1));
-    assert_eq!(bcbp.leg(0).pax_status(), PaxStatus::BaggageAndPaxCheckedIn);
+    assert_eq!(
+        bcbp.leg(0).passenger_status(),
+        PassengerStatus::BaggageAndPaxCheckedIn
+    );
 
     // assert_eq!(bcbp.encode_bcbp().unwrap(), src);
 }

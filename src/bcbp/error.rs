@@ -38,6 +38,16 @@ pub enum Error {
     #[error("invalid version: {0}")]
     InvalidVersion(char),
 
+    #[error("unsupported BCBP version {0} for encoding")]
+    UnsupportedEncodingVersion(u8),
+
+    #[error("{field} requires BCBP version {minimum} or later, got version {version}")]
+    FieldRequiresVersion {
+        field: Field,
+        version: u8,
+        minimum: u8,
+    },
+
     #[error("invalid check-in sequence")]
     InvalidCheckInSequence,
 

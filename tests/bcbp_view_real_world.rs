@@ -17,7 +17,7 @@ fn alaska_boarding_pass() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
 
-    assert_eq!(pass_data.pax_description(), Some(' '));
+    assert_eq!(pass_data.passenger_description(), Some(' '));
     assert_eq!(pass_data.source_of_check_in(), Some('V'));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some('V'));
     assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("8207"));
@@ -42,7 +42,7 @@ fn alaska_boarding_pass() {
         assert_eq!(first_leg.compartment(), 'U');
         assert_eq!(first_leg.seat(), "001A");
         assert_eq!(first_leg.checkin_sequence(), "0006 ");
-        assert_eq!(first_leg.pax_status(), '3');
+        assert_eq!(first_leg.passenger_status(), '3');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("027"));
         assert_eq!(first_leg.document_form_serial_number(), Some("7198099386"));
@@ -66,7 +66,7 @@ fn air_canada_boarding_pass() {
     assert_eq!(pass_data.eticket_flag(), 'E');
     assert_eq!(pass_data.legs().len(), 1);
 
-    assert_eq!(pass_data.pax_description(), Some('0'));
+    assert_eq!(pass_data.passenger_description(), Some('0'));
     assert_eq!(pass_data.source_of_check_in(), Some(' '));
     assert_eq!(pass_data.source_of_boarding_pass_issuance(), Some(' '));
     assert_eq!(pass_data.date_of_issue_of_boarding_pass(), Some("8203"));
@@ -91,7 +91,7 @@ fn air_canada_boarding_pass() {
         assert_eq!(first_leg.compartment(), ' ');
         assert_eq!(first_leg.seat(), "    ");
         assert_eq!(first_leg.checkin_sequence(), "     ");
-        assert_eq!(first_leg.pax_status(), '0');
+        assert_eq!(first_leg.passenger_status(), '0');
 
         assert_eq!(first_leg.airline_numeric_code(), Some("014"));
         assert_eq!(first_leg.document_form_serial_number(), Some("0000000000"));

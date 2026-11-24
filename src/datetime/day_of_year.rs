@@ -43,16 +43,13 @@ impl DayOfYear {
         self.0
     }
 
-    /// Converts this date into [`jiff::civil::Date`]. If it turns out that
-    /// `year` is not a leap year and the day is 366'th, [`Error::OverflowNotLeapYear`]
-    /// is returned.
-    pub fn to_date(&self, year: i32) -> Result<Date, Error> {
-        if self.0 == 366 && !is_leap_year(year) {
-            return Err(Error::OverflowNotLeapYear);
-        }
-
-        Date::new(year as i16, 1, 1)
-            .and_then(|d| d.checked_add((self.0 as i64 - 1).days()))
+    /// Converts the ordinal to a date in `year`.
+    ///
+    /// Returns [`Error::OverflowNotLeapYear`] for day 366 in a common year
+    /// or for a year outside the range of [`Date`].
+    pub fn to_date(&self, year: i16) -> Result<Date, Error> {
+        Date::new(year, 1, 1)
+            .and_then(|jan1| jan1.with().day_of_year(self.0 as i16).build())
             .map_err(|_| Error::OverflowNotLeapYear)
     }
 

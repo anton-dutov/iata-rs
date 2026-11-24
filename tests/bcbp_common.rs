@@ -17,6 +17,50 @@ struct Data {
 }
 
 #[test]
+fn try_extract_minimal_pass_keeps_only_the_first_leg() {
+    for fixture in [BCBP_2LEGS, BCBP_3LEGS] {
+        let Data { raw } = serde_json::from_str(fixture).unwrap();
+        let fixed = try_extract_minimal_pass(&raw).unwrap();
+        assert_eq!(fixed, format!("M1{}00", &raw[2..58]));
+        let pass: Bcbp = fixed.parse().unwrap();
+        assert_eq!(pass.legs_count(), 1);
+        let original: Bcbp = raw.parse().unwrap();
+        assert_eq!(pass.leg(0).flight_number(), original.leg(0).flight_number());
+
+        // The rest of the pass may already be missing or have an invalid length.
+        assert_eq!(
+            try_extract_minimal_pass(&format!("{}FF", &raw[..58])).unwrap(),
+            fixed
+        );
+    }
+}
+
+#[test]
+fn try_extract_minimal_pass_preserves_minimal_pass_and_rejects_short_input() {
+    let Data { raw } = serde_json::from_str(BCBP_MINIMAL).unwrap();
+    assert_eq!(try_extract_minimal_pass(&raw).unwrap(), raw);
+    assert_eq!(
+        try_extract_minimal_pass(&raw[..59]),
+        Err(FixError::InsufficientDataLength)
+    );
+}
+
+#[cfg(feature = "with-serde")]
+#[test]
+fn serialized_passenger_fields_keep_their_names() {
+    let mut pass = Bcbp::default();
+    pass.set_passenger_description(Some(PassengerDescription::AdultWithInfant))
+        .unwrap();
+    let mut leg = Leg::default();
+    leg.set_passenger_status(PassengerStatus::Standby).unwrap();
+    pass.add_leg(leg).unwrap();
+
+    let json = serde_json::to_value(&pass).unwrap();
+    assert_eq!(json["conditional_data"]["pax_kind"], "AdultWithInfant");
+    assert_eq!(json["legs"][0]["pax_status"], "Standby");
+}
+
+#[test]
 fn decode_bcbp_blank() {
     let test_data: Data = serde_json::from_str(BCBP_BLANK).unwrap();
 
@@ -35,7 +79,7 @@ fn decode_bcbp_blank() {
     assert_eq!(leg.compartment(), None);
     assert_eq!(leg.seat(), None);
     assert_eq!(leg.checkin_sequence(), None);
-    assert_eq!(leg.pax_status(), PaxStatus::NotCheckedIn);
+    assert_eq!(leg.passenger_status(), PassengerStatus::NotCheckedIn);
 
     assert_eq!(bcbp.encode_bcbp().unwrap(), test_data.raw);
 }
@@ -70,7 +114,7 @@ fn decode_bcbp_impl5th_simple() {
     assert_eq!(leg.compartment(), Some('F'));
     assert_eq!(leg.seat(), Some("1A"));
     assert_eq!(leg.checkin_sequence(), Some(25));
-    assert_eq!(leg.pax_status(), PaxStatus::CheckedIn);
+    assert_eq!(leg.passenger_status(), PassengerStatus::CheckedIn);
 
     assert_eq!(bcbp.encode_bcbp().unwrap(), test_data.raw);
 }
@@ -94,7 +138,7 @@ fn decode_bcbp_minimal() {
     assert_eq!(leg.compartment(), Some('Y'));
     assert_eq!(leg.seat(), Some("999A"));
     assert_eq!(leg.checkin_sequence(), Some(9876));
-    assert_eq!(leg.pax_status(), PaxStatus::CheckedIn);
+    assert_eq!(leg.passenger_status(), PassengerStatus::CheckedIn);
 
     assert_eq!(bcbp.encode_bcbp().unwrap(), test_data.raw);
 }
@@ -110,7 +154,8 @@ fn encode_bcbp_minimal() {
 
     let mut leg = Leg::default();
 
-    leg.set_pax_status(PaxStatus::CheckedIn).unwrap();
+    leg.set_passenger_status(PassengerStatus::CheckedIn)
+        .unwrap();
     leg.set_pnr(Some("ABCDEFG")).unwrap();
     leg.set_src_airport(Some("SRC")).unwrap();
     leg.set_dst_airport(Some("DST")).unwrap();
@@ -143,6 +188,78 @@ fn roundtrip_empty_legs() {
         assert_eq!(decoded.legs_count(), count);
         assert_eq!(decoded.encode_bcbp().unwrap(), raw);
     }
+}
+
+#[test]
+fn checkin_sequence_roundtrips_in_five_bytes() -> BcbpResult<()> {
+    for (sequence, field) in [
+        (None, "     "),
+        (Some(0), "0000 "),
+        (Some(25), "0025 "),
+        (Some(9999), "9999 "),
+    ] {
+        let mut pass = Bcbp::default();
+        let mut leg = Leg::default();
+        leg.set_checkin_sequence(sequence)?;
+        pass.add_leg(leg)?;
+
+        let raw = pass.encode()?;
+        assert_eq!(raw.len(), 60);
+        assert_eq!(
+            view::BcbpView::parse(&raw)?.legs()[0].checkin_sequence(),
+            field
+        );
+        let decoded = raw.parse::<Bcbp>()?;
+        assert_eq!(decoded.leg(0).checkin_sequence(), sequence);
+        assert_eq!(decoded.encode()?, raw);
+    }
+    Ok(())
+}
+
+#[test]
+fn five_digit_checkin_sequence_is_readable_and_rejected_on_write() -> BcbpResult<()> {
+    let Data { raw } = serde_json::from_str(BCBP_MINIMAL).unwrap();
+    for sequence in [10_000, u16::MAX] {
+        let legacy = raw.replacen("9876 ", &sequence.to_string(), 1);
+        let decoded = legacy.parse::<Bcbp>()?;
+        assert_eq!(decoded.leg(0).checkin_sequence(), Some(sequence));
+        assert_eq!(decoded.encode(), Err(Error::InvalidCheckInSequence));
+
+        let mut pass = raw.parse::<Bcbp>()?;
+        let mut second = Leg::default();
+        second.set_checkin_sequence(Some(sequence))?;
+        pass.add_leg(second)?;
+        assert_eq!(pass.encode_bcbp(), Err(Error::InvalidCheckInSequence));
+    }
+    Ok(())
+}
+
+#[test]
+fn roundtrip_optional_numeric_fields() -> BcbpResult<()> {
+    for (value, date_field, airline_field) in [
+        (None, "    ", "   "),
+        (Some(0), "0000", "000"),
+        (Some(7), "0007", "007"),
+    ] {
+        let mut pass = Bcbp::default();
+        pass.set_doc_type(Some('B'))?;
+        pass.set_boardingpass_issued(value)?;
+        let mut leg = Leg::default();
+        leg.set_fast_track(Some('Y'))?;
+        leg.set_airline_num(value)?;
+        pass.add_leg(leg)?;
+
+        let raw = pass.encode()?;
+        let view = view::BcbpView::parse(&raw)?;
+        assert_eq!(view.date_of_issue_of_boarding_pass(), Some(date_field));
+        assert_eq!(view.legs()[0].airline_numeric_code(), Some(airline_field));
+
+        let decoded = Bcbp::try_from(view)?;
+        assert_eq!(decoded.boardingpass_issued(), value);
+        assert_eq!(decoded.leg(0).airline_num(), value);
+        assert_eq!(decoded.encode()?, raw);
+    }
+    Ok(())
 }
 
 #[test]
@@ -259,6 +376,113 @@ fn is_extended_empty_bcbp_no_panic() {
 }
 
 #[test]
+fn issue_date_must_fit_four_digits() -> BcbpResult<()> {
+    let mut pass = Bcbp::default();
+    pass.add_leg(Leg::default())?;
+    pass.set_boardingpass_issued(Some(9999))?;
+    for value in [10_000, u16::MAX] {
+        assert_eq!(
+            pass.set_boardingpass_issued(Some(value)),
+            Err(Error::InvalidFieldFormat {
+                field: Field::DateOfIssueOfBoardingPass
+            })
+        );
+    }
+    let raw = pass.encode()?;
+    assert_eq!(
+        view::BcbpView::parse(&raw)?.date_of_issue_of_boarding_pass(),
+        Some("9999")
+    );
+    assert_eq!(raw.parse::<Bcbp>()?.boardingpass_issued(), Some(9999));
+    Ok(())
+}
+
+#[test]
+fn text_setters_reject_non_ascii_before_updating_the_pass() -> BcbpResult<()> {
+    let mut leg = Leg::default();
+    leg.set_src_airport(Some("SVO"))?;
+    assert_eq!(
+        leg.set_src_airport(Some("É")),
+        Err(Error::InvalidCharacters)
+    );
+    assert_eq!(leg.src_airport(), Some("SVO"));
+    assert_eq!(
+        leg.set_variable_data(Some("É")),
+        Err(Error::InvalidCharacters)
+    );
+    assert_eq!(
+        leg.set_compartment(Some('É')),
+        Err(Error::InvalidCharacters)
+    );
+    assert_eq!(leg.set_fast_track(Some('É')), Err(Error::InvalidCharacters));
+    assert_eq!(
+        leg.set_passenger_status(PassengerStatus::Other('É')),
+        Err(Error::InvalidCharacters)
+    );
+    assert!(!leg.has_conditional_data());
+
+    let mut pass = Bcbp::default();
+    assert_eq!(
+        pass.set_boardingpass_airline(Some("É")),
+        Err(Error::InvalidCharacters)
+    );
+    assert_eq!(
+        pass.set_passenger_description(Some(PassengerDescription::Other('É'))),
+        Err(Error::InvalidCharacters)
+    );
+    assert!(!pass.has_conditional_data());
+    pass.add_leg(leg)?;
+    assert_eq!(
+        pass.encode()?.parse::<Bcbp>()?.leg(0).src_airport(),
+        Some("SVO")
+    );
+    Ok(())
+}
+
+#[test]
+fn passenger_description_char_conversion_checks_numeric_width() {
+    for ch in [
+        ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'X', 'É',
+    ] {
+        assert_eq!(char::try_from(PassengerDescription::from(ch)).unwrap(), ch);
+    }
+    for digit in 0..=9 {
+        assert_eq!(
+            char::try_from(PassengerDescription::Reserved(digit)).unwrap(),
+            char::from(b'0' + digit)
+        );
+    }
+    for digit in 10..=u8::MAX {
+        assert_eq!(
+            char::try_from(PassengerDescription::Reserved(digit)),
+            Err(Error::InvalidFieldFormat {
+                field: Field::PassengerDescription
+            })
+        );
+    }
+}
+
+#[test]
+fn reserved_passenger_description_must_fit_one_digit() -> BcbpResult<()> {
+    let mut pass = Bcbp::default();
+    pass.add_leg(Leg::default())?;
+    pass.set_passenger_description(Some(PassengerDescription::Reserved(9)))?;
+    for digit in [10, u8::MAX] {
+        assert_eq!(
+            pass.set_passenger_description(Some(PassengerDescription::Reserved(digit))),
+            Err(Error::InvalidFieldFormat {
+                field: Field::PassengerDescription
+            })
+        );
+    }
+    assert_eq!(
+        pass.encode()?.parse::<Bcbp>()?.passenger_description(),
+        Some(PassengerDescription::Reserved(9))
+    );
+    Ok(())
+}
+
+#[test]
 fn boardingpass_airline_len_enforced() {
     let mut bcbp = Bcbp::default();
 
@@ -294,7 +518,10 @@ fn decode_bcbp_2leg() {
     assert_eq!(leg1.compartment(), Some('J'));
     assert_eq!(leg1.seat(), Some("7H"));
     assert_eq!(leg1.checkin_sequence(), Some(180));
-    assert_eq!(leg1.pax_status(), PaxStatus::BaggageAndPaxCheckedIn);
+    assert_eq!(
+        leg1.passenger_status(),
+        PassengerStatus::BaggageAndPaxCheckedIn
+    );
     assert_eq!(leg1.fast_track(), Some('Y'));
     assert_eq!(leg1.variable_data(), Some("AB"));
 
@@ -308,7 +535,10 @@ fn decode_bcbp_2leg() {
     assert_eq!(leg2.compartment(), Some('J'));
     assert_eq!(leg2.seat(), Some("2D"));
     assert_eq!(leg2.checkin_sequence(), Some(70));
-    assert_eq!(leg2.pax_status(), PaxStatus::BaggageAndPaxCheckedIn);
+    assert_eq!(
+        leg2.passenger_status(),
+        PassengerStatus::BaggageAndPaxCheckedIn
+    );
     assert_eq!(leg2.fast_track(), Some('N'));
     assert_eq!(leg2.variable_data(), Some("CD"));
 

@@ -38,6 +38,21 @@ macro_rules! gen_get {
 }
 
 macro_rules! gen_set {
+    (cond $field:ident as Option<char>) => {
+        gen_set!($field as Option<char>, conditional_mut);
+    };
+    ($field:ident $(($preprocess:expr))? as Option<char> $(, $section:ident)?) => {
+        paste::paste! {
+            #[inline]
+            pub fn [<set_ $field>](&mut self, value: Option<char>) -> BcbpResult<()> {
+                if value.is_some_and(|ch| !ch.is_ascii()) {
+                    return Err(Error::InvalidCharacters);
+                }
+                self$(.$section())?.$field = value$(.map($preprocess))?;
+                Ok(())
+            }
+        }
+    };
     ($field:ident as Option<$ty:ty>) => {
         gen_set!($field(core::convert::identity) as Option<$ty>);
     };
@@ -71,12 +86,7 @@ macro_rules! gen_set {
             pub fn [<set_ $field>](&mut self, value: Option<$ty>) -> BcbpResult<()> {
 
                 let value = value.map($preprocess).unwrap_or_default();
-                let field = $bcbp_field;
-                let max = field.len();
-
-                if max > 0 && value.len() > max {
-                    return Err(Error::FieldLengthExceeded { field, max });
-                }
+                $bcbp_field.validate_text(value)?;
 
                 if value.is_empty() {
                     self.$field = None;
@@ -120,12 +130,7 @@ macro_rules! gen_set {
             pub fn [<set_ $field>](&mut self, value: Option<$ty>) -> BcbpResult<()> {
 
                 let value = value.map($preprocess).unwrap_or_default();
-                let field = $bcbp_field;
-                let max = field.len();
-
-                if max > 0 && value.len() > max {
-                    return Err(Error::FieldLengthExceeded { field, max });
-                }
+                $bcbp_field.validate_text(value)?;
 
                 if value.is_empty() {
                     self.conditional_mut().$field = None;

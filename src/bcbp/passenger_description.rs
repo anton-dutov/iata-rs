@@ -1,7 +1,10 @@
+use super::{format::Field, Error};
+
 /// BCBP Item 15 — Passenger Description (1 byte).
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
-pub enum PaxKind {
+#[cfg_attr(feature = "with-serde", serde(rename = "PaxKind"))]
+pub enum PassengerDescription {
     #[default]
     /// Space (no explicit description).
     None, // ' '
@@ -22,9 +25,9 @@ pub enum PaxKind {
     Other(char),
 }
 
-impl From<char> for PaxKind {
+impl From<char> for PassengerDescription {
     fn from(value: char) -> Self {
-        use PaxKind::*;
+        use PassengerDescription::*;
 
         match value {
             ' ' => None,
@@ -42,11 +45,14 @@ impl From<char> for PaxKind {
     }
 }
 
-impl From<PaxKind> for char {
-    fn from(value: PaxKind) -> Self {
-        use PaxKind::*;
+impl TryFrom<PassengerDescription> for char {
+    type Error = Error;
 
-        match value {
+    /// Returns the character code, rejecting reserved values wider than one decimal digit.
+    fn try_from(value: PassengerDescription) -> Result<Self, Self::Error> {
+        use PassengerDescription::*;
+
+        Ok(match value {
             None => ' ',
             Adult => '0',
             Male => '1',
@@ -56,9 +62,12 @@ impl From<PaxKind> for char {
             CabinBaggage => '5',
             AdultWithInfant => '6',
             UnaccompaniedMinor => '7',
-            // Todo: handle invalid digit?
-            Reserved(d) => (b'0' + d) as char,
+            Reserved(digit) => {
+                char::from_digit(u32::from(digit), 10).ok_or(Error::InvalidFieldFormat {
+                    field: Field::PassengerDescription,
+                })?
+            }
             Other(c) => c,
-        }
+        })
     }
 }

@@ -1,6 +1,7 @@
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
-/// BCBP Item 117 — Passenger Status (1 byte).
+#[cfg_attr(feature = "with-serde", serde(rename = "PaxStatus"))]
+/// BCBP Item 113 — Passenger Status (1 byte).
 ///
 /// From the table (image):
 /// 0 — ticket issuance / passenger **not checked in**
@@ -15,7 +16,7 @@
 /// 9 — **original boarding data used** at time of ticket issuance
 /// A — **up-/down-grading required** at close-out (e.g. waitlisted in C, OK in Y)
 /// B–Z — **reserved for future industry use**
-pub enum PaxStatus {
+pub enum PassengerStatus {
     /// Space (rare/unspecified).
     None, // ' '
     #[default]
@@ -36,7 +37,7 @@ pub enum PaxStatus {
     Other(char),
 }
 
-impl From<char> for PaxStatus {
+impl From<char> for PassengerStatus {
     #[inline]
     fn from(value: char) -> Self {
         let v = if value.is_ascii_lowercase() {
@@ -63,23 +64,23 @@ impl From<char> for PaxStatus {
     }
 }
 
-impl From<PaxStatus> for char {
+impl From<PassengerStatus> for char {
     #[inline]
-    fn from(s: PaxStatus) -> Self {
+    fn from(s: PassengerStatus) -> Self {
         match s {
-            PaxStatus::None => ' ',
-            PaxStatus::NotCheckedIn => '0',
-            PaxStatus::CheckedIn => '1',
-            PaxStatus::BaggageCheckedNotCI => '2',
-            PaxStatus::BaggageAndPaxCheckedIn => '3',
-            PaxStatus::PaxPassedSecurity => '4',
-            PaxStatus::PassedGateExitCouponUsed => '5',
-            PaxStatus::Transit => '6',
-            PaxStatus::Standby => '7',
-            PaxStatus::RevalidationDone => '8',
-            PaxStatus::OriginalBoardingDataUsed => '9',
-            PaxStatus::UpDownGradingRequired => 'A',
-            PaxStatus::Reserved(ch) | PaxStatus::Other(ch) => ch,
+            PassengerStatus::None => ' ',
+            PassengerStatus::NotCheckedIn => '0',
+            PassengerStatus::CheckedIn => '1',
+            PassengerStatus::BaggageCheckedNotCI => '2',
+            PassengerStatus::BaggageAndPaxCheckedIn => '3',
+            PassengerStatus::PaxPassedSecurity => '4',
+            PassengerStatus::PassedGateExitCouponUsed => '5',
+            PassengerStatus::Transit => '6',
+            PassengerStatus::Standby => '7',
+            PassengerStatus::RevalidationDone => '8',
+            PassengerStatus::OriginalBoardingDataUsed => '9',
+            PassengerStatus::UpDownGradingRequired => 'A',
+            PassengerStatus::Reserved(ch) | PassengerStatus::Other(ch) => ch,
         }
     }
 }

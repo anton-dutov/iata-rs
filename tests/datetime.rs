@@ -18,9 +18,13 @@ const MONTH_LENS: [(Month, u8); 12] = [
     (Month::November, 30),
     (Month::December, 31),
 ];
-const TIMEZONE_TAGS: [TzTag; 3] = [TzTag::Local, TzTag::None, TzTag::Utc];
-const MIN_YEAR: i32 = 1997;
-const MAX_YEAR: i32 = 3000;
+const TIME_ZONE_INDICATORS: [TimeZoneIndicator; 3] = [
+    TimeZoneIndicator::Local,
+    TimeZoneIndicator::None,
+    TimeZoneIndicator::Utc,
+];
+const MIN_YEAR: i16 = 1997;
+const MAX_YEAR: i16 = 3000;
 
 #[test]
 fn test_month_as_str() {
@@ -62,7 +66,7 @@ fn test_month_to_as_str() {
 fn test_day_of_year_valid() {
     for day in 1..=(DAYS_IN_YEAR + 1) {
         assert!(
-            DayOfYear::new(1).is_ok(),
+            DayOfYear::new(day).is_ok(),
             "Day {day} must be a valid day of year"
         );
     }
@@ -70,7 +74,7 @@ fn test_day_of_year_valid() {
 
 #[test]
 fn test_day_of_year_invalid() {
-    for day in std::iter::once(0).chain((DAYS_IN_YEAR + 2)..=std::u16::MAX) {
+    for day in std::iter::once(0).chain((DAYS_IN_YEAR + 2)..=u16::MAX) {
         assert_eq!(
             DayOfYear::new(day),
             Err(Error::InvalidDayOfYearRange(day)),
@@ -82,11 +86,12 @@ fn test_day_of_year_invalid() {
 #[test]
 fn test_day_of_year_leap_year() {
     for year in MIN_YEAR..MAX_YEAR {
+        let january_first = jiff::civil::date(year, 1, 1);
         assert_eq!(
-            is_leap_year(year),
+            january_first.in_leap_year(),
             DayOfYear::new(366).unwrap().to_date(year).is_ok()
         );
-        if !is_leap_year(year) {
+        if !january_first.in_leap_year() {
             assert_eq!(
                 DayOfYear::new(366).unwrap().to_date(year),
                 Err(Error::OverflowNotLeapYear)
@@ -100,7 +105,7 @@ fn test_day_of_year_to_date() {
     use jiff::{civil::Date, ToSpan};
 
     for year in MIN_YEAR..MAX_YEAR {
-        let jan1 = Date::new(year as i16, 1, 1).unwrap();
+        let jan1 = Date::new(year, 1, 1).unwrap();
         let it = (1..=DAYS_IN_YEAR).filter_map(|day| {
             jan1.checked_add(((day as i64) - 1).days())
                 .map(|x| (day, x))
@@ -119,37 +124,36 @@ fn test_day_of_year_to_date_adapt() {
 
     const WINDOW_SIZE_MAX: u16 = 31;
 
-    let ordinal = |year: i32, day: u16| {
-        Date::new(year as i16, 1, 1)
+    let ordinal = |year: i16, day: u16| {
+        Date::new(year, 1, 1)
             .unwrap()
             .checked_add(((day as i64) - 1).days())
             .unwrap()
     };
 
     // When ticket is for the next year
-    let next_year_test = |window, year: i32| {
+    let next_year_test = |window, year: i16| {
         for offset in 0..window {
             for day in 1..window {
                 assert_eq!(
                     DayOfYear::new(day).unwrap().to_date_adapt(
-                        Date::new(year as i16, 12, 31 - offset as i8).unwrap(),
+                        Date::new(year, 12, 31 - offset as i8).unwrap(),
                         window as u8
                     ),
-                    Ok(Date::new((year + 1) as i16, 1, day as i8).unwrap())
+                    Ok(Date::new(year + 1, 1, day as i8).unwrap())
                 );
             }
         }
     };
 
     // When ticket is for the previous year
-    let prev_year_test = |window, year: i32| {
+    let prev_year_test = |window, year: i16| {
         for offset in 1..window {
-            let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1).unwrap().to_date_adapt(
-                Date::new(year as i16, 1, offset as i8).unwrap(),
-                window as u8,
-            );
+            let edge_date = DayOfYear::new(DAYS_IN_YEAR + 1)
+                .unwrap()
+                .to_date_adapt(Date::new(year, 1, offset as i8).unwrap(), window as u8);
 
-            if is_leap_year(year - 1) {
+            if ordinal(year - 1, 1).in_leap_year() {
                 assert_eq!(edge_date, Ok(ordinal(year - 1, DAYS_IN_YEAR + 1)));
             } else {
                 assert_eq!(edge_date, Err(Error::OverflowNotLeapYear));
@@ -157,10 +161,9 @@ fn test_day_of_year_to_date_adapt() {
 
             for day in (1..window).map(|x| DAYS_IN_YEAR - x + 1) {
                 assert_eq!(
-                    DayOfYear::new(day).unwrap().to_date_adapt(
-                        Date::new(year as i16, 1, offset as i8).unwrap(),
-                        window as u8
-                    ),
+                    DayOfYear::new(day)
+                        .unwrap()
+                        .to_date_adapt(Date::new(year, 1, offset as i8).unwrap(), window as u8),
                     Ok(ordinal(year - 1, day))
                 );
             }
@@ -192,7 +195,7 @@ fn ordinal_and_calendar_dates_share_year_boundaries() {
         );
         assert_eq!(
             calendar
-                .parse::<ShortDate>()
+                .parse::<MonthDay>()
                 .unwrap()
                 .to_date_adapt(reference, 7),
             Ok(expected)
@@ -208,39 +211,92 @@ fn ordinal_and_calendar_dates_share_year_boundaries() {
 }
 
 #[test]
-fn test_tz_as_str() {
-    assert_eq!(TzTag::Local.as_str().as_deref(), Some("L"));
-    assert_eq!(TzTag::Utc.as_str().as_deref(), Some("Z"));
-    assert_eq!(TzTag::None.as_str(), None);
+fn dates_reject_years_outside_jiff_range() {
+    let january = MonthDay::new(Month::January, 1).unwrap();
+    let first = DayOfYear::new(1).unwrap();
+    let midnight = MonthDayTime::new(january.clone(), Time::default());
+    for year in [i16::MIN, -10000, 10000, i16::MAX] {
+        assert!(january.to_date(year).is_err(), "year {year}");
+        assert!(first.to_date(year).is_err(), "year {year}");
+        assert!(midnight.to_datetime(year).is_err(), "year {year}");
+    }
 }
 
 #[test]
-fn test_short_date() {
+fn dates_resolve_at_jiff_limits() {
+    use jiff::civil::Date;
+
+    for (ordinal, calendar, reference) in [(1, "01JAN", Date::MIN), (365, "31DEC", Date::MAX)] {
+        assert_eq!(
+            DayOfYear::new(ordinal).unwrap().to_date_adapt(reference, 7),
+            Ok(reference)
+        );
+        assert_eq!(
+            calendar
+                .parse::<MonthDay>()
+                .unwrap()
+                .to_date_adapt(reference, 7),
+            Ok(reference)
+        );
+    }
+    for (ordinal, calendar, reference) in [(360, "25DEC", Date::MIN), (1, "01JAN", Date::MAX)] {
+        assert!(DayOfYear::new(ordinal)
+            .unwrap()
+            .to_date_adapt(reference, 7)
+            .is_err());
+        assert!(calendar
+            .parse::<MonthDay>()
+            .unwrap()
+            .to_date_adapt(reference, 7)
+            .is_err());
+    }
+}
+
+#[test]
+fn century_leap_dates() {
+    use jiff::civil::date;
+
+    let leap_day = "29FEB".parse::<MonthDay>().unwrap();
+    let last_day = DayOfYear::new(366).unwrap();
+    assert_eq!(leap_day.to_string(), "29FEB");
+    assert!("30FEB".parse::<MonthDay>().is_err());
+    assert_eq!(leap_day.to_date(1900), Err(Error::OverflowNotLeapYear));
+    assert_eq!(last_day.to_date(1900), Err(Error::OverflowNotLeapYear));
+    assert_eq!(leap_day.to_date(2000), Ok(date(2000, 2, 29)));
+    assert_eq!(last_day.to_date(2000), Ok(date(2000, 12, 31)));
+}
+
+#[test]
+fn test_time_zone_indicator_as_str() {
+    assert_eq!(TimeZoneIndicator::Local.as_str().as_deref(), Some("L"));
+    assert_eq!(TimeZoneIndicator::Utc.as_str().as_deref(), Some("Z"));
+    assert_eq!(TimeZoneIndicator::None.as_str(), None);
+}
+
+#[test]
+fn test_month_day() {
     for (month, len) in MONTH_LENS {
         for day in 1..=len {
-            let short_date = ShortDate::new(month, day).expect(&format!(
+            let month_day = MonthDay::new(month, day).expect(&format!(
                 "{day} must be a valid of day of {}",
                 month.as_str()
             ));
 
-            assert_eq!(short_date.day(), day);
-            assert_eq!(short_date.month(), month);
-            assert_eq!(
-                short_date.to_string(),
-                format!("{day:02}{}", month.as_str())
-            );
+            assert_eq!(month_day.day(), day);
+            assert_eq!(month_day.month(), month);
+            assert_eq!(month_day.to_string(), format!("{day:02}{}", month.as_str()));
         }
     }
 }
 
 #[test]
-fn test_short_date_invalid() {
+fn test_month_day_invalid() {
     for (month, len) in MONTH_LENS {
         let it = std::iter::once(0).chain((len + 1)..u8::MAX);
 
         for day in it {
             assert_eq!(
-                ShortDate::new(month, day),
+                MonthDay::new(month, day),
                 Err(Error::InvalidDayForMonth(month, day))
             );
         }
@@ -248,18 +304,19 @@ fn test_short_date_invalid() {
 }
 
 #[test]
-fn test_short_date_leap_year() {
+fn test_month_day_leap_year() {
     for year in MIN_YEAR..MAX_YEAR {
+        let january_first = jiff::civil::date(year, 1, 1);
         assert_eq!(
-            is_leap_year(year),
-            ShortDate::new(Month::February, 29)
+            january_first.in_leap_year(),
+            MonthDay::new(Month::February, 29)
                 .unwrap()
                 .to_date(year)
                 .is_ok()
         );
-        if !is_leap_year(year) {
+        if !january_first.in_leap_year() {
             assert_eq!(
-                ShortDate::new(Month::February, 29).unwrap().to_date(year),
+                MonthDay::new(Month::February, 29).unwrap().to_date(year),
                 Err(Error::OverflowNotLeapYear)
             );
         }
@@ -267,40 +324,37 @@ fn test_short_date_leap_year() {
 }
 
 #[test]
-fn test_short_date_to_date_adapt() {
+fn test_month_day_to_date_adapt() {
     use jiff::civil::Date;
 
     const WINDOW_SIZE_MAX: u16 = 31;
 
     // When ticket is for the next year
-    let next_year_test = |window, year: i32| {
+    let next_year_test = |window, year: i16| {
         for offset in 0..window {
             for day in 1..window {
                 assert_eq!(
-                    ShortDate::new(Month::January, day as u8)
+                    MonthDay::new(Month::January, day as u8)
                         .unwrap()
                         .to_date_adapt(
-                            Date::new(year as i16, 12, 31 - offset as i8).unwrap(),
+                            Date::new(year, 12, 31 - offset as i8).unwrap(),
                             window as u8
                         ),
-                    Ok(Date::new((year + 1) as i16, 1, day as i8).unwrap())
+                    Ok(Date::new(year + 1, 1, day as i8).unwrap())
                 );
             }
         }
     };
 
     // When ticket is for the previous year
-    let prev_year_test = |window, year: i32| {
+    let prev_year_test = |window, year: i16| {
         for offset in 1..window {
             for day in (1..window).map(|x| 31 - x + 1) {
                 assert_eq!(
-                    ShortDate::new(Month::December, day as u8)
+                    MonthDay::new(Month::December, day as u8)
                         .unwrap()
-                        .to_date_adapt(
-                            Date::new(year as i16, 1, offset as i8).unwrap(),
-                            window as u8
-                        ),
-                    Ok(Date::new((year - 1) as i16, 12, day as i8).unwrap())
+                        .to_date_adapt(Date::new(year, 1, offset as i8).unwrap(), window as u8),
+                    Ok(Date::new(year - 1, 12, day as i8).unwrap())
                 );
             }
         }
@@ -313,19 +367,19 @@ fn test_short_date_to_date_adapt() {
 }
 
 #[test]
-fn test_short_date_to_string_from_string() {
+fn test_month_day_to_string_from_string() {
     for (month, len) in MONTH_LENS {
         for day in 1..=len {
             assert_eq!(
-                ShortDate::from_str(&ShortDate::new(month, day).unwrap().to_string()),
-                ShortDate::new(month, day),
+                MonthDay::from_str(&MonthDay::new(month, day).unwrap().to_string()),
+                MonthDay::new(month, day),
             );
         }
     }
 }
 
 #[test]
-fn test_short_date_bad_strs() {
+fn test_month_day_bad_strs() {
     const MAX_SAMPLE_LEN: usize = 1_000_00;
     use rand::distr::{Alphanumeric, SampleString};
     let mut rng = rand::rng();
@@ -336,9 +390,47 @@ fn test_short_date_bad_strs() {
         let s = Alphanumeric.sample_string(&mut rng, len);
 
         if len != 5 {
-            assert!(ShortDate::from_str(&s).is_err());
+            assert!(MonthDay::from_str(&s).is_err());
         }
     }
+}
+
+#[test]
+fn month_day_and_time_reject_utf8_across_field_boundaries() {
+    let date = "0éAN";
+    assert_eq!(
+        date.parse::<MonthDay>(),
+        Err(Error::InvalidInput(date.into()))
+    );
+
+    let short = "0é0";
+    assert_eq!(
+        Time::from_short_str(short),
+        Err(Error::InvalidInput(short.into()))
+    );
+
+    for full in ["0é0Z", "123é", "12345é"] {
+        assert_eq!(
+            Time::from_full_str(full),
+            Err(Error::InvalidInput(full.into()))
+        );
+    }
+}
+
+#[test]
+fn utf8_within_a_field_reports_the_field_error() {
+    assert_eq!(
+        "12MÄ".parse::<MonthDay>(),
+        Err(Error::InvalidMonth("MÄ".into()))
+    );
+    assert_eq!(
+        Time::from_short_str("é12"),
+        Err(Error::InvalidHour("é".into()))
+    );
+    assert_eq!(
+        Time::from_full_str("1234éZ"),
+        Err(Error::InvalidSecond("é".into()))
+    );
 }
 
 #[test]
@@ -368,7 +460,7 @@ fn test_time_valid() {
         for minute in 0..60 {
             assert!(Time::from_short_str(&format!("{hour:02}{minute:02}")).is_ok());
 
-            for timezone in TIMEZONE_TAGS {
+            for timezone in TIME_ZONE_INDICATORS {
                 let tz_str = timezone.as_str();
                 if let Some(tz) = tz_str {
                     assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{tz}")).is_ok());
@@ -411,7 +503,7 @@ fn test_time_valid() {
 fn test_time_invalid() {
     for hour in 24..u8::MAX {
         for minute in 60..u8::MAX {
-            for timezone in TIMEZONE_TAGS {
+            for timezone in TIME_ZONE_INDICATORS {
                 for second in (60..u8::MAX).map(Some) {
                     let time = Time::new(hour, minute, second, timezone);
                     assert!(time.is_err());
@@ -424,7 +516,7 @@ fn test_time_invalid() {
         for minute in 60..100 {
             assert!(Time::from_short_str(&format!("{hour:02}{minute:02}")).is_err());
 
-            for timezone in TIMEZONE_TAGS {
+            for timezone in TIME_ZONE_INDICATORS {
                 let tz_str = timezone.as_str();
                 if let Some(tz) = tz_str {
                     assert!(Time::from_full_str(&format!("{hour:02}{minute:02}{tz}")).is_err());

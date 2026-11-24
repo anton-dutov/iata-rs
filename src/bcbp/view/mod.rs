@@ -33,7 +33,7 @@ pub struct Leg<'a> {
     pub(crate) compartment: char,
     pub(crate) seat: &'a str,
     pub(crate) checkin_sequence: &'a str,
-    pub(crate) pax_status: char,
+    pub(crate) passenger_status: char,
     pub(crate) airline_numeric_code: Option<&'a str>,
     pub(crate) document_form_serial_number: Option<&'a str>,
     pub(crate) selectee_indicator: Option<char>,
@@ -151,8 +151,8 @@ impl Leg<'_> {
     /// The status of the passenger.
     /// Field values are defined in Resolution 792.
     /// A space indicates the field is not set.
-    pub fn pax_status(&self) -> char {
-        self.pax_status
+    pub fn passenger_status(&self) -> char {
+        self.passenger_status
     }
 
     /// The three-digit airline numeric code.
@@ -228,7 +228,7 @@ pub struct BcbpView<'a> {
     pub(crate) version: Option<char>,
     pub(crate) pax_name: &'a str,
     pub(crate) eticket_flag: char,
-    pub(crate) pax_description: Option<char>,
+    pub(crate) passenger_description: Option<char>,
     pub(crate) source_of_check_in: Option<char>,
     pub(crate) source_of_boarding_pass_issuance: Option<char>,
     pub(crate) date_of_issue_of_boarding_pass: Option<&'a str>,
@@ -284,8 +284,8 @@ impl<'a> BcbpView<'a> {
     /// This describes the passenger.
     /// Values are defined in Resolution 792.
     /// Spaces indicate the field is not set.
-    pub fn pax_description(&self) -> Option<char> {
-        self.pax_description
+    pub fn passenger_description(&self) -> Option<char> {
+        self.passenger_description
     }
 
     /// The name of the passenger. Up to 20 characters, left-aligned, space padded.

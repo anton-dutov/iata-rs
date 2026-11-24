@@ -8,8 +8,8 @@ mod error;
 pub mod format;
 mod from_view;
 mod leg;
-mod pax_kind;
-mod pax_status;
+mod passenger_description;
+mod passenger_status;
 mod security_data;
 pub mod utils;
 mod version;
@@ -20,8 +20,8 @@ use crate::macros::*;
 
 pub use self::error::{BcbpResult, Error, FixError};
 pub use self::leg::Leg;
-pub use self::pax_kind::PaxKind;
-pub use self::pax_status::PaxStatus;
+pub use self::passenger_description::PassengerDescription;
+pub use self::passenger_status::PassengerStatus;
 pub use self::security_data::SecurityData;
 pub use self::version::Version;
 
@@ -52,8 +52,20 @@ impl Bcbp {
 
     gen_get!(security_data as_ref Option<&SecurityData>);
 
-    gen_get!(cond pax_kind as Option<PaxKind>);
-    gen_set!(cond pax_kind as Option<PaxKind>);
+    gen_get!(cond passenger_description as Option<PassengerDescription>);
+
+    pub fn set_passenger_description(
+        &mut self,
+        value: Option<PassengerDescription>,
+    ) -> BcbpResult<()> {
+        if let Some(description) = value {
+            if !char::try_from(description)?.is_ascii() {
+                return Err(Error::InvalidCharacters);
+            }
+        }
+        self.conditional_mut().passenger_description = value;
+        Ok(())
+    }
 
     gen_get!(cond checkin_src as Option<char>);
     gen_set!(cond checkin_src as Option<char>);
@@ -80,6 +92,16 @@ impl Bcbp {
         self.conditional_data.is_some()
     }
 
+    fn has_unique_fields(&self) -> bool {
+        self.conditional_data.as_ref().is_some_and(|fields| {
+            *fields
+                != ConditionalData {
+                    version: fields.version,
+                    ..Default::default()
+                }
+        })
+    }
+
     #[inline]
     fn conditional_mut(&mut self) -> &mut ConditionalData {
         self.conditional_data
@@ -94,15 +116,7 @@ impl Bcbp {
 
     pub fn set_passenger_name(&mut self, value: &str) -> BcbpResult<()> {
         let value = value.trim();
-        let field = Field::PassengerName;
-        let max = field.len();
-
-        if value.len() > max {
-            return Err(Error::FieldLengthExceeded { field, max });
-        }
-        if !value.is_ascii() {
-            return Err(Error::InvalidCharacters);
-        }
+        Field::PassengerName.validate_text(value)?;
         self.passenger_name = value.to_owned();
 
         Ok(())
@@ -152,6 +166,10 @@ impl Bcbp {
     }
 
     /// Encodes this boarding pass as a BCBP string.
+    ///
+    /// Returns [`Error::FieldRequiresVersion`] if a field requires a newer
+    /// version than the one set on the pass. Returns [`Error::InvalidCheckInSequence`]
+    /// if any leg's check-in sequence exceeds 9999.
     pub fn encode(&self) -> BcbpResult<String> {
         encode_bcbp(self)
     }
@@ -159,12 +177,19 @@ impl Bcbp {
     pub fn encode_bcbp(&self) -> BcbpResult<String> {
         self.encode()
     }
+    /// Returns the version read from the pass or set with [`Self::set_version`].
     pub fn version(&self) -> Option<Version> {
         self.conditional_data.as_ref().and_then(|c| c.version)
     }
 
+    /// Selects the version for encoding. `None` selects [`Version::LATEST`]
+    /// when writing a version field. Compatibility is checked by [`Self::encode`].
     pub fn set_version(&mut self, version: Option<Version>) -> BcbpResult<()> {
-        self.conditional_mut().version = version;
+        if version.is_none() && !self.has_unique_fields() {
+            self.conditional_data = None;
+        } else {
+            self.conditional_mut().version = version;
+        }
 
         Ok(())
     }
@@ -175,7 +200,13 @@ impl Bcbp {
             .and_then(|c| c.boardingpass_issued)
     }
 
+    /// Sets the four-digit issue date. Values above 9999 return [`Error::InvalidFieldFormat`].
     pub fn set_boardingpass_issued(&mut self, boardingpass_issued: Option<u16>) -> BcbpResult<()> {
+        if boardingpass_issued.is_some_and(|value| value > 9999) {
+            return Err(Error::InvalidFieldFormat {
+                field: Field::DateOfIssueOfBoardingPass,
+            });
+        }
         self.conditional_mut().boardingpass_issued = boardingpass_issued;
 
         Ok(())
@@ -186,7 +217,8 @@ impl Bcbp {
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 struct ConditionalData {
     version: Option<Version>,
-    pax_kind: Option<PaxKind>,
+    #[cfg_attr(feature = "with-serde", serde(rename = "pax_kind"))]
+    passenger_description: Option<PassengerDescription>,
     checkin_src: Option<char>,
     boardingpass_src: Option<char>,
     boardingpass_issued: Option<u16>,
@@ -199,18 +231,22 @@ struct ConditionalData {
     nonconsecutive_bagtag2: Option<String>,
 }
 
-pub fn fix_length(src: &str) -> std::result::Result<String, FixError> {
+/// Extracts a minimal 60-byte BCBP from the mandatory fields of the first leg.
+/// Sets the leg count to one for multi-leg passes and the variable section length
+/// to `00`. The discarded sections can be incomplete.
+pub fn try_extract_minimal_pass(src: &str) -> std::result::Result<String, FixError> {
     if src.len() < 60 {
         return Err(FixError::InsufficientDataLength);
     }
 
-    let mut tmp = src.to_owned();
-
-    // Minimal
-    tmp.truncate(58);
-    tmp.push_str("00");
-
-    Ok(tmp)
+    let mandatory = src.get(..58).ok_or(FixError::InsufficientDataLength)?;
+    let mut minimal = String::with_capacity(60);
+    minimal.push_str(mandatory);
+    if matches!(mandatory.as_bytes(), [b'M', b'2'..=b'9', ..]) {
+        minimal.replace_range(1..2, "1");
+    }
+    minimal.push_str("00");
+    Ok(minimal)
 }
 
 #[allow(dead_code)]

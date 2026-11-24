@@ -1,4 +1,4 @@
-use crate::bcbp::{format::Field, Bcbp, BcbpResult, ConditionalData, Error, Leg};
+use crate::bcbp::{format::Field, Bcbp, BcbpResult, Error, Leg, Version};
 use std::fmt::Write as _;
 
 const BLANK3: &str = "   ";
@@ -10,6 +10,12 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
     if !(1..=9).contains(&legs_count) {
         return Err(Error::InvalidNumberOfLegs);
     }
+
+    let version = bcbp
+        .version()
+        .unwrap_or(Version::LATEST)
+        .encoding_number()?;
+    validate_versioned_fields(bcbp, version)?;
 
     let mut data = String::with_capacity(60);
     write!(
@@ -27,7 +33,7 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
         let first_extended = index == 0 && bcbp.is_extednded();
         if first_extended {
             section.push('>');
-            section.push(bcbp.version().map(char::from).unwrap_or(' '));
+            section.push(char::from(b'0' + version));
             let unique = encode_cond_data(bcbp)?;
             write_section(
                 &mut section,
@@ -55,6 +61,39 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
     Ok(data)
 }
 
+fn validate_versioned_fields(pass: &Bcbp, version: u8) -> BcbpResult<()> {
+    use Field::*;
+
+    // Resolution 792, Implementation Guide §2.2.3 (Version management).
+    for (field, minimum, present) in [
+        (SecurityData, 3, pass.security_data().is_some()),
+        (
+            FirstNonConsecutiveBaggageTagNumbers,
+            4,
+            pass.nonconsecutive_bagtag1().is_some(),
+        ),
+        (
+            SecondNonConsecutiveBaggageTagNumbers,
+            4,
+            pass.nonconsecutive_bagtag2().is_some(),
+        ),
+        (
+            FastTrack,
+            5,
+            pass.legs().any(|leg| leg.fast_track().is_some()),
+        ),
+    ] {
+        if present && version < minimum {
+            return Err(Error::FieldRequiresVersion {
+                field,
+                version,
+                minimum,
+            });
+        }
+    }
+    Ok(())
+}
+
 fn write_section(dst: &mut String, field: Field, body: &str) -> BcbpResult<()> {
     let len = u8::try_from(body.len()).map_err(|_| Error::FieldLengthExceeded {
         field,
@@ -65,21 +104,14 @@ fn write_section(dst: &mut String, field: Field, body: &str) -> BcbpResult<()> {
 }
 
 fn encode_cond_data(bcbp: &Bcbp) -> BcbpResult<String> {
-    // The version precedes the unique section and has its own wire field.
-    let version_only = ConditionalData {
-        version: bcbp.version(),
-        ..Default::default()
-    };
-    if bcbp
-        .conditional_data
-        .as_ref()
-        .is_none_or(|fields| fields == &version_only)
-    {
+    if !bcbp.has_unique_fields() {
         return Ok(String::new());
     }
     let mut buf = String::with_capacity(50);
 
-    buf.push(bcbp.pax_kind().map(char::from).unwrap_or(' '));
+    buf.push(char::try_from(
+        bcbp.passenger_description().unwrap_or_default(),
+    )?);
     buf.push(bcbp.checkin_src().unwrap_or(' '));
     buf.push(bcbp.boardingpass_src().unwrap_or(' '));
     match bcbp.boardingpass_issued() {
@@ -151,17 +183,14 @@ fn write_leg_mandatory_data(buf: &mut String, leg: &Leg) -> BcbpResult<()> {
         None => buf.push_str(BLANK4),
     }
 
-    // Sequence (4 characters, zero-padded) or spaces
-    if let Some(seq) = leg.checkin_sequence() {
-        write!(buf, "{:0>4}", seq)?;
-    } else {
-        buf.push_str(BLANK4);
+    match leg.checkin_sequence() {
+        Some(seq) if seq <= 9999 => write!(buf, "{seq:04} ")?,
+        Some(_) => return Err(Error::InvalidCheckInSequence),
+        None => buf.push_str("     "),
     }
-    // Blank afger sequence
-    buf.push(' ');
 
-    // Pax status (1 character)
-    buf.push(char::from(leg.pax_status()));
+    // Passenger status (1 character)
+    buf.push(char::from(leg.passenger_status()));
 
     Ok(())
 }
@@ -190,9 +219,8 @@ fn encode_leg_cond_data(leg: &Leg) -> BcbpResult<String> {
 
     write!(buf, "{:<3}", leg.baggage_allowance().unwrap_or_default())?;
 
-    // TODO: Check version before adding fast track
-    if leg.fast_track().is_some() {
-        buf.push(leg.fast_track().unwrap_or(' '));
+    if let Some(fast_track) = leg.fast_track() {
+        buf.push(fast_track);
     }
 
     Ok(buf)

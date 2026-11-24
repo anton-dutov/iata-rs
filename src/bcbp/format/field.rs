@@ -48,7 +48,7 @@ macro_rules! define_fields {
         ];
 
         impl Field {
-            /// Returns the zero-based index of this variant in [`FIELD_META`].
+            /// Returns the zero-based position of this field in [`Field::iter`] order.
             #[inline]
             pub const fn idx(self) -> usize { self as usize }
 
@@ -217,7 +217,7 @@ define_fields!(
     /// Item 42: Operating Carrier Designator. 3 bytes. Format 'f'.
     (OperatingCarrier,                          3,  "Operating Carrier Designator"),
 
-    /// Item 43: Flight Number. 5 bytes. Format 'NNNN[a]'.
+    /// Item 43: Flight Number. 5 bytes. Format `NNNN[a]`.
     (FlightNumber,                              5,  "Flight Number"),
 
     /// Item 46: Date of Flight. 3 bytes. Format 'N'.
@@ -232,7 +232,7 @@ define_fields!(
     /// Item 104: Seat Number. 4 bytes. Usually 'NNNa', but can be 'INF ' or similar.
     (SeatNumber,                                4,  "Seat Number"),
 
-    /// Item 107: Check-In Sequence Number. 5 bytes. Usually 'NNNN[f]', but can be 'f'.
+    /// Item 107: Check-In Sequence Number. 5 bytes. Usually `NNNN[f]`, but can be `f`.
     (CheckInSequenceNumber,                     5,  "Check-In Sequence Number"),
 
     /// Item 108: International Document Verification. 1 byte. Format 'f'.

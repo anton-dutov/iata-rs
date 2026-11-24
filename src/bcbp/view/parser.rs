@@ -108,7 +108,7 @@ fn decode_conditional<'a>(
             let mut unique_chunk = cond_data.read_chunk(len)?;
 
             // Item 15: Passenger Description, 1 character
-            bcbp.pax_description = unique_chunk.read_char_opt(Field::PassengerDescription)?;
+            bcbp.passenger_description = unique_chunk.read_char_opt(Field::PassengerDescription)?;
             // Item 12: Source of Check-In, 1 character
             bcbp.source_of_check_in = unique_chunk.read_char_opt(Field::SourceOfCheckIn)?;
             // Item 14: Source of Boarding Pass Issuance, 1 character
@@ -162,7 +162,7 @@ fn decode_leg<'a>(cursor: &mut Cursor<'a>) -> BcbpResult<Leg<'a>> {
         // Item 107: Check-in Sequence Number, 5 characters, numeric, right justified, zero filled.
         checkin_sequence: cursor.read_str(Field::CheckInSequenceNumber)?,
         // Item 113: Passenger Status, 1 character
-        pax_status: cursor.read_char(Field::PassengerStatus)?,
+        passenger_status: cursor.read_char(Field::PassengerStatus)?,
         ..Default::default()
     })
 }
