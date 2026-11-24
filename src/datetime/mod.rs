@@ -27,6 +27,39 @@ pub fn is_leap_year(year: i32) -> bool {
     year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
+fn days_in_year(year: i32) -> u16 {
+    365 + u16::from(is_leap_year(year))
+}
+
+// Only January and December can cross a year boundary. Evaluate the target
+// ordinal in the candidate year, whose December can start on day 335 or 336.
+fn adapted_year(
+    reference: Date,
+    days: u8,
+    ordinal_in: impl FnOnce(i32) -> Option<u16>,
+) -> Result<i32, Error> {
+    if !(1..=MAX_ADAPT_DAYS).contains(&days) {
+        return Err(Error::InvalidAdaptRange(days));
+    }
+    let year = i32::from(reference.year());
+    let day = reference.day() as u8;
+    match reference.month() {
+        12 if day > 31 - days => {
+            if ordinal_in(year + 1).is_some_and(|ordinal| ordinal < u16::from(days)) {
+                return Ok(year + 1);
+            }
+        }
+        1 if day < days => {
+            let cutoff = days_in_year(year - 1) - u16::from(days);
+            if ordinal_in(year - 1).is_some_and(|ordinal| ordinal > cutoff) {
+                return Ok(year - 1);
+            }
+        }
+        _ => {}
+    }
+    Ok(year)
+}
+
 /// A date without a year i.e. a date with a month and a day.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShortDate {
@@ -111,7 +144,7 @@ impl ShortDate {
     /// For more information about algorithm and some examples, see
     /// [`DayOfYear::to_date_adapt()`].
     pub fn to_date_adapt_year(&self, offset: Offset, days: u8) -> Result<Date, Error> {
-        let now = Timestamp::now().to_zoned(TimeZone::fixed(offset));
+        let now = Timestamp::now().to_zoned_datetime(TimeZone::fixed(offset));
 
         self.to_date_adapt(now.date(), days)
     }
@@ -121,34 +154,11 @@ impl ShortDate {
     /// For more information about algorithm and some examples, see
     /// [`DayOfYear::to_date_adapt()`].
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
-        use Month::*;
-
-        if !(1..=MAX_ADAPT_DAYS).contains(&days) {
-            return Err(Error::InvalidAdaptRange(days));
-        }
-
-        let mut year: i32 = for_date.year() as i32;
-        let for_month = for_date.month();
-        let for_day = for_date.day() as u8;
-
-        if for_month == 12
-            && for_day > 31 - days
-            && self.month == January
-            && self.day < days
-        {
-            year += 1;
-        } else if for_month == 1
-            && for_day < days
-            && self.month == December
-            && self.day > 31 - days
-        {
-            year -= 1;
-        }
-
-        if self.month == February && self.day == 29 && !is_leap_year(year) {
-            return Err(Error::OverflowNotLeapYear);
-        }
-
+        let year = adapted_year(for_date, days, |year| match self.month {
+            Month::January => Some(u16::from(self.day)),
+            Month::December => Some(days_in_year(year) - 31 + u16::from(self.day)),
+            _ => None,
+        })?;
         self.to_date(year)
     }
 }
@@ -465,11 +475,7 @@ impl ShortDateTime {
     ///
     /// For more information about algorithm and some examples, see
     /// [`DayOfYear::to_date_adapt()`].
-    pub fn to_datetime_adapt_year(
-        &self,
-        offset: Offset,
-        days: u8,
-    ) -> Result<DateTime, Error> {
+    pub fn to_datetime_adapt_year(&self, offset: Offset, days: u8) -> Result<DateTime, Error> {
         self.date
             .to_date_adapt_year(offset, days)
             .map(|date| date.to_datetime(self.time.to_time()))

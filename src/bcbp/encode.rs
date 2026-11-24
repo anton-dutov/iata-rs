@@ -1,7 +1,6 @@
-use crate::bcbp::{Bcbp, BcbpResult, Error};
+use crate::bcbp::{format::Field, Bcbp, BcbpResult, ConditionalData, Error, Leg};
 use std::fmt::Write as _;
 
-// const MAX_LEGS: usize = 9;
 const BLANK3: &str = "   ";
 const BLANK4: &str = "    ";
 
@@ -12,70 +11,73 @@ pub fn encode_bcbp(bcbp: &Bcbp) -> BcbpResult<String> {
         return Err(Error::InvalidNumberOfLegs);
     }
 
-    let mut mandatory = String::with_capacity(60);
-
+    let mut data = String::with_capacity(60);
     write!(
-        mandatory,
+        data,
         "M{}{:<20}{}",
         legs_count,
         bcbp.passenger_name,
         bcbp.eticket_indicator.unwrap_or(' ')
     )?;
 
-    let mut legs = bcbp.legs.iter();
+    for (index, leg) in bcbp.legs().enumerate() {
+        write_leg_mandatory_data(&mut data, leg)?;
 
-    let first_leg = legs.next().ok_or(Error::InvalidNumberOfLegs)?;
-
-    mandatory.push_str(&encode_leg_mandatory_data(first_leg)?);
-
-    let mut ext = String::with_capacity(4096);
-
-    if bcbp.is_extednded() {
-        let cond_data = encode_cond_data(bcbp)?;
-        let leg_cond_data = encode_leg_cond_data(first_leg)?;
-
-        write!(
-            mandatory,
-            "{:02X}",
-            cond_data.len() + leg_cond_data.len() + 2 + 2
-        )?;
-        ext.push('>');
-        ext.push(bcbp.version().map(char::from).unwrap_or(' '));
-        write!(ext, "{:02X}", cond_data.len())?;
-        ext.push_str(&cond_data);
-        ext.push_str(&leg_cond_data);
-    } else {
-        mandatory.push_str("00");
-    }
-
-    for leg in legs {
-        let leg_data = encode_leg_mandatory_data(leg)?;
-        let leg_cond_data = encode_leg_cond_data(leg)?;
-
-        ext.push_str(&leg_data);
-        write!(ext, "{:02X}", leg_cond_data.len())?;
-        ext.push_str(&leg_cond_data);
-    }
-
-    let mut data = String::with_capacity(4096);
-    data.push_str(&mandatory);
-
-    if !ext.is_empty() {
-        data.push_str(&ext);
+        let mut section = String::new();
+        let first_extended = index == 0 && bcbp.is_extednded();
+        if first_extended {
+            section.push('>');
+            section.push(bcbp.version().map(char::from).unwrap_or(' '));
+            let unique = encode_cond_data(bcbp)?;
+            write_section(
+                &mut section,
+                Field::FieldSizeOfStructuredMessageUnique,
+                &unique,
+            )?;
+        }
+        if first_extended || leg.has_conditional_data() {
+            let repeated = encode_leg_cond_data(leg)?;
+            write_section(
+                &mut section,
+                Field::FieldSizeOfStructuredMessageRepeated,
+                &repeated,
+            )?;
+            section.push_str(leg.variable_data().unwrap_or_default());
+        }
+        write_section(&mut data, Field::FieldSizeOfVariableSizeField, &section)?;
     }
 
     if let Some(sd) = bcbp.security_data() {
         data.push('^');
         data.push(sd.kind);
-        write!(data, "{:02X}", sd.data.len())?;
-        data.push_str(&sd.data);
+        write_section(&mut data, Field::LengthOfSecurityData, &sd.data)?;
     }
-
     Ok(data)
 }
 
+fn write_section(dst: &mut String, field: Field, body: &str) -> BcbpResult<()> {
+    let len = u8::try_from(body.len()).map_err(|_| Error::FieldLengthExceeded {
+        field,
+        max: u8::MAX.into(),
+    })?;
+    write!(dst, "{len:02X}{body}")?;
+    Ok(())
+}
+
 fn encode_cond_data(bcbp: &Bcbp) -> BcbpResult<String> {
-    let mut buf = String::with_capacity(128);
+    // The version precedes the unique section and has its own wire field.
+    let version_only = ConditionalData {
+        version: bcbp.version(),
+        ..Default::default()
+    };
+    if bcbp
+        .conditional_data
+        .as_ref()
+        .is_none_or(|fields| fields == &version_only)
+    {
+        return Ok(String::new());
+    }
+    let mut buf = String::with_capacity(50);
 
     buf.push(bcbp.pax_kind().map(char::from).unwrap_or(' '));
     buf.push(bcbp.checkin_src().unwrap_or(' '));
@@ -91,13 +93,26 @@ fn encode_cond_data(bcbp: &Bcbp) -> BcbpResult<String> {
     }
 
     write!(buf, "{:<13}", bcbp.bagtags().unwrap_or_default())?;
+    if bcbp.nonconsecutive_bagtag1().is_some() || bcbp.nonconsecutive_bagtag2().is_some() {
+        write!(
+            buf,
+            "{:<width$}",
+            bcbp.nonconsecutive_bagtag1().unwrap_or_default(),
+            width = Field::FirstNonConsecutiveBaggageTagNumbers.len()
+        )?;
+    }
+    if let Some(tag) = bcbp.nonconsecutive_bagtag2() {
+        write!(
+            buf,
+            "{tag:<width$}",
+            width = Field::SecondNonConsecutiveBaggageTagNumbers.len()
+        )?;
+    }
 
     Ok(buf)
 }
 
-fn encode_leg_mandatory_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
-    let mut buf = String::with_capacity(512);
-
+fn write_leg_mandatory_data(buf: &mut String, leg: &Leg) -> BcbpResult<()> {
     let pnr = leg.pnr().unwrap_or_default();
     let src = leg.src_airport().unwrap_or_default();
     let dst = leg.dst_airport().unwrap_or_default();
@@ -148,15 +163,14 @@ fn encode_leg_mandatory_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
     // Pax status (1 character)
     buf.push(char::from(leg.pax_status()));
 
-    Ok(buf)
+    Ok(())
 }
 
-fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
-    let mut buf = String::with_capacity(512);
-
-    if !leg.has_conditional_data() {
-        return Ok(buf);
-    };
+fn encode_leg_cond_data(leg: &Leg) -> BcbpResult<String> {
+    if !leg.has_repeated_fields() {
+        return Ok(String::new());
+    }
+    let mut buf = String::with_capacity(42);
 
     match leg.airline_num() {
         Some(n) => write!(buf, "{n:03}")?,
@@ -181,20 +195,5 @@ fn encode_leg_cond_data(leg: &crate::bcbp::Leg) -> BcbpResult<String> {
         buf.push(leg.fast_track().unwrap_or(' '));
     }
 
-    // Calculate conditional data size before adding variable data
-    let cond_size = buf.len();
-
-    // Doesn't include to cond_size
-    let variable_data = leg.variable_data();
-    let variable_data = variable_data.unwrap_or_default();
-
-    buf.push_str(variable_data);
-
-    let mut rec = String::with_capacity(buf.len() + 2);
-
-    write!(rec, "{:02X}", cond_size)?;
-
-    rec.push_str(&buf);
-
-    Ok(rec)
+    Ok(buf)
 }

@@ -1,6 +1,6 @@
 #![cfg(feature = "with-bcbp")]
 
-use iata::{bcbp::*, bcbp::format::Field, datetime::DayOfYear};
+use iata::{bcbp::format::Field, bcbp::*, datetime::DayOfYear};
 use serde::Deserialize;
 
 const BCBP_BLANK: &str = include_str!("../test_data/bcbp_blank.json");
@@ -128,14 +128,128 @@ fn encode_bcbp_minimal() {
 }
 
 #[test]
-fn encode_allows_9_legs() {
-    let mut bcbp = Bcbp::default();
-
-    for _ in 0..9 {
-        bcbp.add_leg(Leg::default()).unwrap();
+fn roundtrip_empty_legs() {
+    for count in [1, 2, 9] {
+        let mut pass = Bcbp::default();
+        for _ in 0..count {
+            pass.add_leg(Leg::default()).unwrap();
+        }
+        let raw = pass.encode_bcbp().unwrap();
+        assert_eq!(
+            view::BcbpView::decode_bcbp(&raw).unwrap().legs().len(),
+            count
+        );
+        let decoded = Bcbp::decode_bcbp(&raw).unwrap();
+        assert_eq!(decoded.legs_count(), count);
+        assert_eq!(decoded.encode_bcbp().unwrap(), raw);
     }
+}
 
-    assert!(bcbp.encode_bcbp().is_ok());
+#[test]
+fn roundtrip_nonconsecutive_bagtags() {
+    for (first, second) in [
+        (Some("0123456789001"), None),
+        (None, Some("0123456789002")),
+        (Some("0123456789001"), Some("0123456789002")),
+    ] {
+        let mut pass = Bcbp::default();
+        let mut leg = Leg::default();
+        leg.set_airline_num(Some(123)).unwrap();
+        pass.add_leg(leg).unwrap();
+        pass.set_nonconsecutive_bagtag1(first).unwrap();
+        pass.set_nonconsecutive_bagtag2(second).unwrap();
+        let decoded = Bcbp::decode_bcbp(pass.encode_bcbp().unwrap()).unwrap();
+        assert_eq!(decoded.nonconsecutive_bagtag1(), first);
+        assert_eq!(decoded.nonconsecutive_bagtag2(), second);
+    }
+}
+
+#[test]
+fn roundtrip_variable_section_size_limit() {
+    let mut bcbp = Bcbp::default();
+    let mut leg = Leg::default();
+    leg.set_variable_data(Some("X")).unwrap();
+    bcbp.add_leg(leg).unwrap();
+    let raw = bcbp.encode_bcbp().unwrap();
+    let overhead = raw.len() - 60 - 1;
+    let payload = "X".repeat(255 - overhead);
+    bcbp.legs_mut()
+        .next()
+        .unwrap()
+        .set_variable_data(Some(&payload))
+        .unwrap();
+    let decoded = Bcbp::decode_bcbp(bcbp.encode_bcbp().unwrap()).unwrap();
+    assert_eq!(decoded.leg(0).variable_data(), Some(payload.as_str()));
+    bcbp.legs_mut()
+        .next()
+        .unwrap()
+        .set_variable_data(Some(&(payload + "X")))
+        .unwrap();
+    assert!(matches!(
+        bcbp.encode_bcbp(),
+        Err(Error::FieldLengthExceeded {
+            field: Field::FieldSizeOfVariableSizeField,
+            max: 255
+        })
+    ));
+}
+
+#[test]
+fn parse_view_and_convert_to_owned() {
+    let data: Data = serde_json::from_str(BCBP_2LEGS).unwrap();
+    let view = view::BcbpView::parse(&data.raw).unwrap();
+    assert_eq!(view.version(), Some('5'));
+    assert_eq!(view.legs()[0].seat(), "007H");
+
+    let owned = Bcbp::try_from(view).unwrap();
+    assert_eq!(owned.version(), Some(Version::Value(5)));
+    assert_eq!(owned.leg(0).seat(), Some("7H"));
+    assert_eq!(owned.encode().unwrap(), data.raw);
+    assert_eq!(
+        data.raw.parse::<Bcbp>().unwrap().encode().unwrap(),
+        data.raw
+    );
+
+    let invalid_day = data.raw.replacen("204J", "367J", 1);
+    let view = view::BcbpView::parse(&invalid_day).unwrap();
+    assert!(matches!(Bcbp::try_from(view), Err(Error::DateTimeErro(_))));
+    assert!(matches!(
+        invalid_day.parse::<Bcbp>(),
+        Err(Error::DateTimeErro(_))
+    ));
+}
+
+#[test]
+fn convert_optional_security_section() {
+    let data: Data = serde_json::from_str(BCBP_MINIMAL).unwrap();
+    assert!(data.raw.parse::<Bcbp>().unwrap().security_data().is_none());
+    for (suffix, body) in [("^100", ""), ("^103", "abc")] {
+        let raw = format!("{}{suffix}{body}", data.raw);
+        let view = view::BcbpView::parse(&raw).unwrap();
+        assert_eq!(
+            view.security_data().data(),
+            (!body.is_empty()).then_some(body)
+        );
+        let pass = Bcbp::try_from(view).unwrap();
+        assert_eq!(pass.security_data().unwrap().data, body);
+        assert_eq!(pass.encode().unwrap(), raw);
+    }
+    let raw = format!("{}^1", data.raw);
+    let view = view::BcbpView::parse(&raw).unwrap();
+    assert!(matches!(
+        Bcbp::try_from(view),
+        Err(Error::UnexpectedEndOfInput(Field::LengthOfSecurityData))
+    ));
+}
+
+#[test]
+fn convert_airline_data_following_empty_repeated_section() {
+    let data: Data = serde_json::from_str(BCBP_MINIMAL).unwrap();
+    let raw = format!("{}09>60000abc", &data.raw[..58]);
+    let view = view::BcbpView::parse(&raw).unwrap();
+    assert_eq!(view.legs()[0].airline_individual_use(), Some("abc"));
+    let pass = Bcbp::try_from(view).unwrap();
+    assert_eq!(pass.leg(0).variable_data(), Some("abc"));
 }
 
 #[test]

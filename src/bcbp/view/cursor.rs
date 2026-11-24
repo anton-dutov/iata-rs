@@ -1,15 +1,7 @@
 use tracing::*;
 
-use super::{
-    //     raw,
-    //     field,
-    super::{
-        error::{BcbpResult, Error},
-        format::Field,
-    },
-};
+use crate::bcbp::{format::Field, BcbpResult, Error};
 
-// #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub(crate) struct Cursor<'a> {
     input: &'a str,
 }

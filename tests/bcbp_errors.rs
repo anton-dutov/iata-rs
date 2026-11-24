@@ -14,7 +14,7 @@ mod samples {
     };
     use rand::{
         seq::{IndexedRandom, IteratorRandom},
-        Rng,
+        RngExt,
     };
 
     pub static BASE_BCBP: &str = "M1BRUNER/ROMAN MR     EJNUFFX MUCSVOSU 2327 231L013A0052 100";

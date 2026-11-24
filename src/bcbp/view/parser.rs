@@ -6,12 +6,11 @@
 use crate::bcbp::{
     error::{BcbpResult, Error},
     format::Field,
-    parser::cursor::Cursor,
-    view::{BcbpView, Leg, SecurityData},
+    view::{cursor::Cursor, BcbpView, Leg, SecurityData},
 };
 
-/// Parses a boarding pass from `input_data` representable as a string reference.
-pub fn decode_bcbp_view(input: &str) -> BcbpResult<BcbpView<'_>> {
+/// Parses the wire layout shared by the borrowed and owned decoders.
+pub(in crate::bcbp) fn parse(input: &str) -> BcbpResult<BcbpView<'_>> {
     if !input.is_ascii() {
         return Err(Error::InvalidCharacters);
     }
@@ -82,9 +81,9 @@ fn decode_conditional<'a>(
         return Ok(());
     }
 
-    // if cond_size > cursor.remaining() {
-    //     return Err(Error::ConditionalDataSize);
-    // }
+    if cond_size > cursor.remaining() {
+        return Err(Error::ConditionalDataLengthMismatch);
+    }
 
     // chunk over the entire set of conditional fields.
     let mut cond_data = cursor.read_chunk(cond_size)?;
@@ -99,9 +98,7 @@ fn decode_conditional<'a>(
     }
 
     // Item 9: Version Number, 1 character, '1'..'9'
-    if cond_data.remaining() > 0 {
-        let _ = cond_data.read_str(Field::VersionNumber)?;
-    }
+    bcbp.version = Some(cond_data.read_char(Field::VersionNumber)?);
 
     // Conditional unique fields are embedded in their own variable-length wrapper.
     if cond_data.remaining() > 0 {
@@ -123,19 +120,19 @@ fn decode_conditional<'a>(
             // Item 16: Document Type, 1 character
             bcbp.doc_type = unique_chunk.read_char_opt(Field::DocumentType)?;
             // Item 21: Airline Designator of Boarding Pass Issuer, 3 characters
-            bcbp.airline_designator_of_boarding_pass_issuer = unique_chunk
-                .read_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?;
+            bcbp.airline_designator_of_boarding_pass_issuer =
+                unique_chunk.read_str_opt(Field::AirlineDesignatorOfBoardingPassIssuer)?;
 
             // Item 23: Baggage Tag License Plate, 13 characters
             bcbp.baggage_tags = unique_chunk.read_str_opt(Field::BaggageTagNumbers)?;
 
             // Item 31: First Non-Consecutive Baggage Tag License Plate, 13 characters
-            bcbp.nonconsecutive_baggage_tags1 = unique_chunk
-                .read_str_opt(Field::FirstNonConsecutiveBaggageTagNumbers)?;
+            bcbp.nonconsecutive_baggage_tags1 =
+                unique_chunk.read_str_opt(Field::FirstNonConsecutiveBaggageTagNumbers)?;
 
             // Item 32: Second Non-Consecutive Baggage Tag License Plate, 13 characters
-            bcbp.nonconsecutive_baggage_tags2 = unique_chunk
-                .read_str_opt(Field::SecondNonConsecutiveBaggageTagNumbers)?;
+            bcbp.nonconsecutive_baggage_tags2 =
+                unique_chunk.read_str_opt(Field::SecondNonConsecutiveBaggageTagNumbers)?;
         }
     }
 
@@ -171,20 +168,24 @@ fn decode_leg<'a>(cursor: &mut Cursor<'a>) -> BcbpResult<Leg<'a>> {
 }
 
 fn decode_leg_conditional<'a>(span: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpResult<()> {
-    // Item 6: Field Size of variable size field (Conditional + Airline item 4)
+    // Item 17: size of the repeated structured fields, excluding airline data.
     let len = span.read_usize(Field::FieldSizeOfStructuredMessageRepeated, 16)?;
-    if len == 0 {
-        return Ok(());
+    if len > 0 {
+        decode_repeated(&mut span.read_chunk(len)?, leg)?;
     }
+    if span.remaining() > 0 {
+        leg.airline_individual_use =
+            Some(span.read_str_len(Field::AirlineIndividualUse, span.remaining())?);
+    }
+    Ok(())
+}
 
-    let mut repeated = span.read_chunk(len)?;
-
+fn decode_repeated<'a>(repeated: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpResult<()> {
     // Item 142: Airline Numeric Code, 3 characters
     leg.airline_numeric_code = repeated.read_str_opt(Field::AirlineNumericCode)?;
 
     // Item 143: Document Form/Serial Number, 10 characters
-    leg.document_form_serial_number = repeated
-        .read_str_opt(Field::DocumentFormSerialNumber)?;
+    leg.document_form_serial_number = repeated.read_str_opt(Field::DocumentFormSerialNumber)?;
 
     // Item 18: Selectee Indicator, 1 character
     leg.selectee_indicator = repeated.read_char_opt(Field::SelecteeIndicator)?;
@@ -197,30 +198,20 @@ fn decode_leg_conditional<'a>(span: &mut Cursor<'a>, leg: &mut Leg<'a>) -> BcbpR
     leg.marketing_carrier = repeated.read_str_opt(Field::MarketingCarrier)?;
 
     // Item 20: Frequent Flyer Airline Designator, 3 characters
-    leg.frequent_flyer_airline = repeated
-        .read_str_opt(Field::FrequentFlyerAirline)?;
+    leg.frequent_flyer_airline = repeated.read_str_opt(Field::FrequentFlyerAirline)?;
 
     // Item 236: Frequent Flyer Number, 16 characters
-    leg.frequent_flyer_number = repeated
-        .read_str_opt(Field::FrequentFlyerNumber)?;
+    leg.frequent_flyer_number = repeated.read_str_opt(Field::FrequentFlyerNumber)?;
 
     // Item 89: ID/AD Indicator, 1 character
     leg.id_ad_indicator = repeated.read_char_opt(Field::IdAdIndicator)?;
 
     // Item 118: Free Baggage Allowance, 3 characters
-    leg.free_baggage_allowance = repeated
-        .read_str_opt(Field::FreeBaggageAllowance)?;
+    leg.free_baggage_allowance = repeated.read_str_opt(Field::FreeBaggageAllowance)?;
 
     // Item 254: Fast Track, 1 character
     leg.fast_track = repeated.read_char_opt(Field::FastTrack)?;
 
-    // Any remaining text is ascribed to airline use.
-    if span.remaining() > 0 {
-        let len = span.remaining();
-        // Item 4: Airline Individual Use
-        let body = span.read_str_len(Field::AirlineIndividualUse, len)?;
-        leg.airline_individual_use = Some(body);
-    }
     Ok(())
 }
 
@@ -235,7 +226,7 @@ fn decode_security_data(cursor: &mut Cursor<'_>) -> BcbpResult<SecurityData> {
     // Item 28: Type of Security Data, 1 character, vendor specific.
     let kind = cursor.read_char(Field::TypeOfSecurityData)?;
     let mut data = SecurityData {
-        kind,
+        kind: Some(kind),
         ..Default::default()
     };
 
@@ -243,11 +234,11 @@ fn decode_security_data(cursor: &mut Cursor<'_>) -> BcbpResult<SecurityData> {
     if cursor.remaining() > 0 {
         // Item 29: Length of Security Data, 2 characters, numeric, right justified, zero filled.
         let len = cursor.read_usize(Field::LengthOfSecurityData, 16)?;
-        if len > 0 {
-            // Item 30: Security Data, up to 512 characters, vendor specific.
-            let body = cursor.read_str_len(Field::SecurityData, len)?;
-            data.data = Some(body.into());
-        }
+        data.data = Some(if len == 0 {
+            String::new()
+        } else {
+            cursor.read_str_len(Field::SecurityData, len)?.to_owned()
+        });
     }
 
     Ok(data)

@@ -106,6 +106,25 @@ impl Leg {
         self.conditional_data.is_some()
     }
 
+    pub(super) fn has_repeated_fields(&self) -> bool {
+        !matches!(
+            self.conditional_data,
+            None | Some(LegConditionalData {
+                airline_num: None,
+                doc_number: None,
+                selectee_indicator: None,
+                doc_intl_verification: None,
+                marketing_carrier: None,
+                freq_flyer_airline: None,
+                freq_flyer_number: None,
+                id_ad_indicator: None,
+                baggage_allowance: None,
+                fast_track: None,
+                variable_data: _,
+            })
+        )
+    }
+
     #[inline]
     fn conditional_mut(&mut self) -> &mut LegConditionalData {
         self.conditional_data

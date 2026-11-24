@@ -3,11 +3,10 @@
 // This software may be modified and distributed under the terms
 // of the MIT license.  See the LICENSE file for details.
 
-mod parser;
+mod cursor;
+pub(super) mod parser;
 
-use crate::bcbp::error::BcbpResult;
-
-use parser::decode_bcbp_view;
+use crate::bcbp::{format::Field, BcbpResult, Error};
 
 // Copyright (C) 2018 Martin Mroz
 //
@@ -208,24 +207,25 @@ impl Leg<'_> {
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct SecurityData {
-    pub(crate) kind: char,
+    pub(crate) kind: Option<char>,
     pub(crate) data: Option<String>,
 }
 
 impl SecurityData {
     /// Vendor specific flag indicating the type of the security data which follows.
     pub fn kind(&self) -> char {
-        self.kind
+        self.kind.unwrap_or_default()
     }
 
     /// Security data used to verify the boarding pass was not tampered with.
     pub fn data(&self) -> Option<&str> {
-        self.data.as_deref()
+        self.data.as_deref().filter(|body| !body.is_empty())
     }
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct BcbpView<'a> {
+    pub(crate) version: Option<char>,
     pub(crate) pax_name: &'a str,
     pub(crate) eticket_flag: char,
     pub(crate) pax_description: Option<char>,
@@ -242,8 +242,25 @@ pub struct BcbpView<'a> {
 }
 
 impl<'a> BcbpView<'a> {
-    pub fn decode_bcbp(input: &'a str) -> BcbpResult<BcbpView<'a>> {
-        decode_bcbp_view(input)
+    /// Parses the wire fields, preserving padding and their original spelling.
+    pub fn parse(input: &'a str) -> BcbpResult<Self> {
+        parser::parse(input).map_err(|err| match err {
+            // Keep the view decoder's field-level diagnostics.
+            Error::ConditionalDataLengthMismatch => Error::SubsectionTooLong,
+            Error::UnexpectedEndOfInput(Field::VersionNumber) => {
+                Error::UnexpectedEndOfInput(Field::FieldSizeOfStructuredMessageRepeated)
+            }
+            other => other,
+        })
+    }
+
+    pub fn decode_bcbp(input: &'a str) -> BcbpResult<Self> {
+        Self::parse(input)
+    }
+
+    /// Raw version character, including a space if the section omits a value.
+    pub fn version(&self) -> Option<char> {
+        self.version
     }
 
     /// All legs encoded into the boarding pass.

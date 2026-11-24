@@ -62,21 +62,17 @@ impl DayOfYear {
     /// For more information about algorithm and some examples, see
     /// [`Self::to_date_adapt()`].
     pub fn to_date_adapt_year(&self, offset: Offset, days: u8) -> Result<Date, Error> {
-        let now = Timestamp::now().to_zoned(TimeZone::fixed(offset));
+        let now = Timestamp::now().to_zoned_datetime(TimeZone::fixed(offset));
 
         self.to_date_adapt(now.date(), days)
     }
 
-    /// Tries to figure out what year the day stored in `self` belongs to. Here are the
-    /// techniques used by the function (here "today's date" is whatever is stored in `for_date`):
-    ///
-    /// 1. If `self.ordinal()` is more than `days` days earlier than today's date,
-    ///    `self.ordinal()` is not more than `days` days later than the start of year -- it
-    ///    is considered that `self` belongs to the next year.
-    /// 2. If `self.ordinal()` is less than `days` days away from year's end, today's date
-    ///    is not more than `days` days later than the start of the year -- it is considered that
-    ///    `self` belongs to the previous year.
-    /// 3. Otherwise we consider `self` belonging to the same year today's date belongs to.
+    /// Infers the year relative to `for_date`. The December window includes the
+    /// last `days` calendar days. The January window includes days 1 up to
+    /// (excluding) `days`, so a one-day window never changes the year.
+    /// If the reference and target are in opposite windows, choose the adjacent
+    /// year across New Year. Otherwise use the reference year. For a January
+    /// reference, interpret the target ordinal against the previous year's length.
     ///
     /// # Errors
     ///
@@ -131,25 +127,7 @@ impl DayOfYear {
     /// );
     /// ```
     pub fn to_date_adapt(&self, for_date: Date, days: u8) -> Result<Date, Error> {
-        if days == 0 || days > MAX_ADAPT_DAYS {
-            return Err(Error::InvalidAdaptRange(days));
-        }
-
-        let mut year: i32 = for_date.year() as i32;
-        let for_ordinal = for_date.day_of_year() as u16;
-
-        let days = days as u16;
-        let upper_limit = 365 - days;
-        if self.0 < days && for_ordinal > upper_limit {
-            year += 1;
-        } else if self.0 > upper_limit && for_ordinal < days {
-            year -= 1;
-        }
-
-        if self.0 == 366 && !is_leap_year(year) {
-            return Err(Error::OverflowNotLeapYear);
-        }
-
+        let year = adapted_year(for_date, days, |_| Some(self.0))?;
         self.to_date(year)
     }
 }

@@ -6,8 +6,8 @@ mod encode;
 
 mod error;
 pub mod format;
+mod from_view;
 mod leg;
-mod parser;
 mod pax_kind;
 mod pax_status;
 mod security_data;
@@ -89,10 +89,7 @@ impl Bcbp {
     pub fn is_extednded(&self) -> bool {
         self.has_conditional_data()
             || self.legs_count() > 1
-            || self
-                .legs
-                .first()
-                .is_some_and(Leg::has_conditional_data)
+            || self.legs.first().is_some_and(Leg::has_conditional_data)
     }
 
     pub fn set_passenger_name(&mut self, value: &str) -> BcbpResult<()> {
@@ -151,11 +148,16 @@ impl Bcbp {
     }
 
     pub fn decode_bcbp(src: impl AsRef<str>) -> BcbpResult<Bcbp> {
-        parser::decode_bcbp(src.as_ref())
+        src.as_ref().parse()
+    }
+
+    /// Encodes this boarding pass as a BCBP string.
+    pub fn encode(&self) -> BcbpResult<String> {
+        encode_bcbp(self)
     }
 
     pub fn encode_bcbp(&self) -> BcbpResult<String> {
-        encode_bcbp(self)
+        self.encode()
     }
     pub fn version(&self) -> Option<Version> {
         self.conditional_data.as_ref().and_then(|c| c.version)
@@ -180,7 +182,7 @@ impl Bcbp {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize))]
 struct ConditionalData {
     version: Option<Version>,
